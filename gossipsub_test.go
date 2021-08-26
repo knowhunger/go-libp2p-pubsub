@@ -41,6 +41,8 @@ func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSu
 }
 
 func TestSparseGossipsub(t *testing.T) {
+
+	fmt.Println("test")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	hosts := getNetHosts(t, ctx, 20)
