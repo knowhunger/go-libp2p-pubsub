@@ -120,12 +120,47 @@ func testWithTracer(t *testing.T, tracer EventTracer) {
 	time.Sleep(time.Second)
 }
 
+type statMsg struct {
+	msgID string
+	time  int64
+}
+
 type traceStats struct {
 	publish, reject, duplicate, deliver, add, remove, recv, send, drop, join, leave, graft, prune int
+	gmsg, smsg, rmsg, hmsg, delay                                                                 []int64
+	hop                                                                                           []int64
+}
+
+func (t *traceStats) evaluateStat(evt *pb.TraceEvent, baseTime int64) {
+	switch evt.GetType() {
+	case pb.TraceEvent_PUBLISH_MESSAGE:
+		// check gmsg
+		t.gmsg = append(t.gmsg, (*evt.Timestamp-baseTime)/1000000)
+	case pb.TraceEvent_DUPLICATE_MESSAGE:
+		// check hmsg
+		if len(t.hmsg) > 0 {
+			t.hmsg = t.hmsg[:len(t.hmsg)-1]
+		}
+		if len(t.delay) > 0 {
+			t.delay = t.delay[:len(t.delay)-1]
+		}
+	case pb.TraceEvent_RECV_RPC:
+		// check rmsg
+		if len(evt.GetRecvRPC().GetMeta().Messages) > 0 {
+			t.rmsg = append(t.rmsg, (*evt.Timestamp-baseTime)/1000000)
+			t.hmsg = append(t.hmsg, (*evt.Timestamp-baseTime)/1000000)
+			t.delay = append(t.delay, (*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].Timestamp)/1000000)
+			t.hop = append(t.hop, *evt.RecvRPC.Meta.Messages[0].Hop)
+		}
+	case pb.TraceEvent_SEND_RPC:
+		// check smsg
+		if len(evt.GetSendRPC().GetMeta().Messages) > 0 {
+			t.smsg = append(t.smsg, (*evt.Timestamp-baseTime)/1000000)
+		}
+	}
 }
 
 func (t *traceStats) process(evt *pb.TraceEvent) {
-	//fmt.Printf("process event %s\n", evt.GetType())
 	switch evt.GetType() {
 	case pb.TraceEvent_PUBLISH_MESSAGE:
 		t.publish++

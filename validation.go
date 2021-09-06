@@ -351,7 +351,7 @@ loop:
 }
 
 func (v *validation) validateSignature(msg *Message) bool {
-	var zero int32 = 0
+	var zero int64 = 0
 	originHop := msg.GetHop()
 	msg.Hop = &zero
 

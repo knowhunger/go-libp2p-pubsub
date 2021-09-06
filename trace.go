@@ -297,7 +297,6 @@ func (t *pubsubTracer) SendRPC(rpc *RPC, p peer.ID) {
 			Meta:   t.traceRPCMeta(rpc),
 		},
 	}
-
 	t.tracer.Trace(evt)
 }
 
@@ -347,6 +346,7 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 			MessageID: []byte(t.msgID(m)),
 			Topic:     m.Topic,
 			Hop:       m.Hop,
+			Timestamp: m.Timestamp,
 		})
 	}
 	rpcMeta.Messages = msgs

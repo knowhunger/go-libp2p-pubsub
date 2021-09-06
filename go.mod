@@ -14,4 +14,6 @@ require (
 	github.com/libp2p/go-msgio v0.0.6
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee
+	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d // indirect
+	gonum.org/v1/plot v0.9.0
 )

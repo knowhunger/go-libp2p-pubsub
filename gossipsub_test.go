@@ -1,13 +1,18 @@
 package pubsub
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"io"
+	"io/fs"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +31,10 @@ import (
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 
 	"github.com/libp2p/go-msgio/protoio"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 func getGossipsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
@@ -51,11 +60,91 @@ func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSu
 	return psubs
 }
 
-func printStat(psubs []*PubSub) {
-	var stats traceStats
-	var evt pb.TraceEvent
+func readOpFile(targetDir string, fileInfo fs.FileInfo) [][]string {
+	var dataSlice [][]string
+
+	file, err := os.Open(fmt.Sprintf("%v/%v", targetDir, fileInfo.Name()))
+	defer file.Close()
+
+	//handle errors while opening
+	if err != nil {
+		log.Fatalf("Error when opening file: %s", err)
+	}
+
+	fileScanner := bufio.NewScanner(file)
+
+	// read line by line
+	for fileScanner.Scan() {
+		splitString := strings.Split(fileScanner.Text(), " ")
+		splitString[1] = strings.Trim(splitString[1], "[]")
+		dataSlice = append(dataSlice, splitString)
+	}
+	// handle first encountered error while reading
+	if err := fileScanner.Err(); err != nil {
+		log.Fatalf("Error while reading file: %s", err)
+	}
+
+	return dataSlice
+}
+
+func readOps(targetDir string) [][]string {
+	var fileContents [][]string
+
+	files, err := ioutil.ReadDir(targetDir)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, file := range files {
+		fileContents = append(fileContents, readOpFile(targetDir, file)...)
+	}
+
+	sort.Slice(fileContents, func(i, j int) bool {
+		left, _ := strconv.Atoi(fileContents[i][0])
+		right, _ := strconv.Atoi(fileContents[j][0])
+		return left < right
+	})
+
+	return fileContents
+}
+
+func convertStat(msgStat []int64, unitTime, endTime int64) map[int]int {
+	//var msgPerUnitTime map[int]int
+	msgPerUnitTime := make(map[int]int)
+	logTime := 0
+
+	sort.Slice(msgStat, func(i, j int) bool {
+		return msgStat[i] < msgStat[j]
+	})
+
+	for _, msg := range msgStat {
+		if int(msg) < logTime {
+			msgPerUnitTime[logTime] += 1
+		} else {
+			logTime += 500
+		}
+	}
+	for i := 0; i < int(endTime); i += 500 {
+		if _, ok := msgPerUnitTime[i]; !ok {
+			msgPerUnitTime[i] = 0
+		}
+	}
+
+	return msgPerUnitTime
+}
+
+func printStat(psubs []*PubSub, baseTime, endTime int64) {
+	var numGmsg, numSmsg, numRmsg, numHmsg int
+	var sliceGmsg, sliceHmsg []int64
+	var gmsgPerUnitTime, hmsgPerUnitTime map[int]int
+
+	unitTime := int64(1) // 0.00s 까지
+	endTime = endTime/unitTime + 10000
 
 	for i := 0; i < len(psubs); i++ {
+		fmt.Println("peer", i, "'s Stat")
+		var stats traceStats
+		var evt pb.TraceEvent
 		f, err := os.Open(fmt.Sprintf("./trace_out/tracer_%d.json", i))
 		if err != nil {
 			panic(err)
@@ -68,24 +157,24 @@ func printStat(psubs []*PubSub) {
 			if err != nil {
 				break
 			}
-
-			stats.process(&evt)
+			//fmt.Println("===================")
+			stats.evaluateStat(&evt, baseTime)
 		}
 
-		fmt.Println("peer", i, "statistics")
-		fmt.Println("publish cnt", stats.publish)
-		fmt.Println("reject cnt", stats.reject)
-		fmt.Println("duplicate cnt", stats.duplicate)
-		fmt.Println("deliver cnt", stats.deliver)
-		fmt.Println("add cnt", stats.add)
-		fmt.Println("remove cnt", stats.remove)
-		fmt.Println("recv cnt", stats.recv)
-		fmt.Println("send cnt", stats.send)
-		fmt.Println("drop cnt", stats.drop)
-		fmt.Println("join cnt", stats.join)
-		fmt.Println("leave cnt", stats.leave)
-		fmt.Println("graft cnt", stats.graft)
-		fmt.Println("prune cnt", stats.prune)
+		fmt.Println("gmsg cnt", len(stats.gmsg))
+		fmt.Println("smsg cnt", len(stats.smsg))
+		fmt.Println("rmsg cnt", len(stats.rmsg))
+		fmt.Println("hmsg cnt", len(stats.hmsg))
+		fmt.Println("delay ", stats.delay)
+
+		numGmsg += len(stats.gmsg)
+		numSmsg += len(stats.smsg)
+		numRmsg += len(stats.rmsg)
+		numHmsg += len(stats.hmsg)
+
+		sliceGmsg = append(sliceGmsg, stats.gmsg...)
+		sliceHmsg = append(sliceHmsg, stats.hmsg...)
+
 		fmt.Println()
 
 		err = f.Close()
@@ -93,11 +182,87 @@ func printStat(psubs []*PubSub) {
 			return
 		}
 	}
+
+	fmt.Println("total gmsg: ", numGmsg)
+	fmt.Println("total smsg: ", numSmsg)
+	fmt.Println("total rmsg: ", numRmsg)
+	fmt.Println("total hmsg: ", numHmsg)
+
+	gmsgPerUnitTime = convertStat(sliceGmsg, unitTime, endTime)
+	hmsgPerUnitTime = convertStat(sliceHmsg, unitTime, endTime)
+
+	fmt.Println(gmsgPerUnitTime)
+	fmt.Println(hmsgPerUnitTime)
+
+	var coverage float64
+	coverage = float64(numHmsg) / (float64(numGmsg) * float64(len(psubs)-1))
+	fmt.Println("Coverage: ", coverage)
+
+	var redundancy float64
+	redundancy = float64(numSmsg) / (float64(numGmsg) * float64(len(psubs)-1))
+	fmt.Println("Redundancy: ", redundancy)
+
+	calculateCoverage(numGmsg, hmsgPerUnitTime, endTime, len(psubs))
 }
 
-func ElapsedTime(start time.Time, name string) {
+func calculateCoverage(gmsg int, hmsg map[int]int, endTime int64, lenPsubs int) {
+	var totalHmsg int
+	//coverage := make(map[int]float64)
+	var pts plotter.XYs
+
+	type kv struct {
+		Key   int
+		Value int
+	}
+	var sortMsg []kv
+
+	for k, v := range hmsg {
+		sortMsg = append(sortMsg, kv{Key: k, Value: v})
+	}
+	sort.Slice(sortMsg, func(i, j int) bool {
+		return sortMsg[i].Key < sortMsg[j].Key
+	})
+
+	for _, hm := range sortMsg {
+		//fmt.Println(hm.Key, hm.Value)
+		totalHmsg += hm.Value
+
+		coverage := float64(totalHmsg) / (float64(gmsg) * float64(lenPsubs-1))
+		pts = append(pts, plotter.XY{X: float64(hm.Key), Y: coverage})
+		//pts[i].Y = coverage[i]
+	}
+
+	//fmt.Println(pts)
+
+	p := plot.New()
+
+	p.Title.Text = "Coverage plot example"
+	p.X.Label.Text = "Time (ms)"
+	p.Y.Label.Text = "Coverage"
+
+	plter, err := plotter.NewLine(pts)
+	if err != nil {
+		panic(err)
+	}
+
+	plter.Color = color.RGBA{R: 255, A: 255}
+
+	p.Add(plter)
+
+	//err := plotutil.AddLinePoints(p, "Coverage", pts)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	// Save the plot to a PNG file.
+	if err := p.Save(4*vg.Inch, 4*vg.Inch, "./figure/points_1000.png"); err != nil {
+		panic(err)
+	}
+}
+
+func ElapsedTime(start time.Time, num int, name string) {
 	elapsed := time.Since(start)
-	fmt.Printf("%s took %s\n", name, elapsed)
+	fmt.Printf("%d 's %s took  %s\n", num, name, elapsed)
 }
 
 func hopChecker(psubs []*PubSub) {
@@ -123,12 +288,63 @@ func hopChecker(psubs []*PubSub) {
 	fmt.Println()
 }
 
+func opsPublish(ctx context.Context, tp *Topic, msgs []*Subscription, fileInfo fs.FileInfo) {
+	targetDir := "./rgaops"
+	ops := readOpFile(targetDir, fileInfo)
+
+	//playback := 1
+	//baseTime := time.Now().UnixNano()
+
+	for _, op := range ops {
+		//fmt.Println(op)
+		//generateTime, _ := strconv.Atoi(op[0])
+		//generateTime = int(float64(generateTime))
+		//timeNow := (time.Now().UnixNano() - baseTime) / 1000000 // ms 단위로 맞추기 위해
+
+		//timeGap := int64(generateTime) - timeNow
+		//timeGap = int64(float64(timeGap))
+		//fmt.Println(timeGap, generateTime, timeNow)
+		//if  timeGap > 0 {
+		//	time.Sleep(time.Millisecond * time.Duration(timeGap))
+		//}
+
+		//msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+		msg := []byte(op[2])
+
+		//owner := rand.Intn(len(psubs))
+		// owner := 0 	// publish only peer 0
+		//owner, _ := strconv.Atoi(strings.Split(op[1], ",")[1])
+
+		err := tp.Publish(ctx, msg)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, sub := range msgs {
+			_, err := sub.Next(ctx)
+			if err != nil {
+				panic(sub.err)
+			}
+			//if !bytes.Equal(msg, got.Data) {
+			//	panic("got wrong message!")
+			//}
+		}
+	}
+	//ElapsedTime(operationTime, owner, "msg publish")
+	time.Sleep(5 * time.Second)
+}
+
 func TestSparseGossipsub(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numOfHosts := 20
-	numOfMsgToPublish := 10
+	//ops := readOps(targetDir)
+
+	//playback := 0.01
+	var baseTime, endTime int64
+	numOfHosts := 20 // 256 개 포트 정도는 되는지
+	//numOfMsgToPublish := 1000
+	baseTime = time.Now().UnixNano()
 
 	hosts := getNetHosts(t, ctx, numOfHosts)
 	psubs := getGossipsubs(ctx, hosts)
@@ -145,8 +361,8 @@ func TestSparseGossipsub(t *testing.T) {
 	}
 
 	// build random connect
-	sparseConnect(t, hosts) // connect to 3 random peers
-	//denseConnect(t, hosts) 		// connect to 10 random peers
+	//sparseConnect(t, hosts) // connect to 3 random peers
+	denseConnect(t, hosts) // connect to 10 random peers
 
 	// build centralized connect (like star shape)
 	//for i := 1; i < numOfHosts; i++ {
@@ -156,33 +372,54 @@ func TestSparseGossipsub(t *testing.T) {
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
-	for i := 0; i < numOfMsgToPublish; i++ {
-		start := time.Now()
-		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+	//publish based random owner
+	//for i := 0; i < 30; i++ {
+	//	msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+	//
+	//	owner := rand.Intn(len(psubs))
+	//
+	//	err := topics[owner].Publish(ctx, msg)
+	//	if err != nil {
+	//		t.Fatal(err)
+	//	}
+	//
+	//	for _, sub := range msgs {
+	//		got, err := sub.Next(ctx)
+	//		if err != nil {
+	//			t.Fatal(sub.err)
+	//		}
+	//		if !bytes.Equal(msg, got.Data) {
+	//			t.Fatal("got wrong message!")
+	//		}
+	//	}
+	//}
 
-		owner := rand.Intn(len(psubs))
-		// owner := 0 	// publish only peer 0
-
-		err := topics[owner].Publish(ctx, msg)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for _, sub := range msgs {
-			got, err := sub.Next(ctx)
-			if err != nil {
-				t.Fatal(sub.err)
-			}
-			if !bytes.Equal(msg, got.Data) {
-				t.Fatal("got wrong message!")
-			}
-		}
-		ElapsedTime(start, strconv.Itoa(i)+"'s publish")
+	// publish based rgaops
+	targetDir := "./rgaops"
+	var wg sync.WaitGroup
+	files, err := ioutil.ReadDir(targetDir)
+	if err != nil {
+		panic(err)
 	}
 
+	for _, info := range files {
+		wg.Add(1)
+		peerStr := strings.Split(info.Name(), ".")[0]
+		peerInt, _ := strconv.Atoi(peerStr)
+
+		go func(ctx context.Context, tp *Topic, msgs []*Subscription, info fs.FileInfo) {
+			defer wg.Done()
+			opsPublish(ctx, tp, msgs, info)
+		}(ctx, topics[peerInt], msgs, info)
+	}
+
+	wg.Wait()
+
+	endTime = (time.Now().UnixNano() - baseTime) / 1000000
+
 	// print some statistics
-	hopChecker(psubs)
-	printStat(psubs)
+	//hopChecker(psubs)
+	printStat(psubs, baseTime, endTime)
 }
 
 func TestDenseGossipsub(t *testing.T) {
