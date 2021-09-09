@@ -166,6 +166,7 @@ func printStat(psubs []*PubSub, baseTime, endTime int64) {
 		fmt.Println("rmsg cnt", len(stats.rmsg))
 		fmt.Println("hmsg cnt", len(stats.hmsg))
 		fmt.Println("delay ", stats.delay)
+		fmt.Println("hop ", stats.hop)
 
 		numGmsg += len(stats.gmsg)
 		numSmsg += len(stats.smsg)
@@ -373,47 +374,47 @@ func TestSparseGossipsub(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	//publish based random owner
-	//for i := 0; i < 30; i++ {
-	//	msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
-	//
-	//	owner := rand.Intn(len(psubs))
-	//
-	//	err := topics[owner].Publish(ctx, msg)
-	//	if err != nil {
-	//		t.Fatal(err)
-	//	}
-	//
-	//	for _, sub := range msgs {
-	//		got, err := sub.Next(ctx)
-	//		if err != nil {
-	//			t.Fatal(sub.err)
-	//		}
-	//		if !bytes.Equal(msg, got.Data) {
-	//			t.Fatal("got wrong message!")
-	//		}
-	//	}
-	//}
+	for i := 0; i < 30; i++ {
+		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+
+		owner := rand.Intn(len(psubs))
+
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, sub := range msgs {
+			got, err := sub.Next(ctx)
+			if err != nil {
+				t.Fatal(sub.err)
+			}
+			if !bytes.Equal(msg, got.Data) {
+				t.Fatal("got wrong message!")
+			}
+		}
+	}
 
 	// publish based rgaops
-	targetDir := "./rgaops"
-	var wg sync.WaitGroup
-	files, err := ioutil.ReadDir(targetDir)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, info := range files {
-		wg.Add(1)
-		peerStr := strings.Split(info.Name(), ".")[0]
-		peerInt, _ := strconv.Atoi(peerStr)
-
-		go func(ctx context.Context, tp *Topic, msgs []*Subscription, info fs.FileInfo) {
-			defer wg.Done()
-			opsPublish(ctx, tp, msgs, info)
-		}(ctx, topics[peerInt], msgs, info)
-	}
-
-	wg.Wait()
+	//targetDir := "./rgaops"
+	//var wg sync.WaitGroup
+	//files, err := ioutil.ReadDir(targetDir)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//for _, info := range files {
+	//	wg.Add(1)
+	//	peerStr := strings.Split(info.Name(), ".")[0]
+	//	peerInt, _ := strconv.Atoi(peerStr)
+	//
+	//	go func(ctx context.Context, tp *Topic, msgs []*Subscription, info fs.FileInfo) {
+	//		defer wg.Done()
+	//		opsPublish(ctx, tp, msgs, info)
+	//	}(ctx, topics[peerInt], msgs, info)
+	//}
+	//
+	//wg.Wait()
 
 	endTime = (time.Now().UnixNano() - baseTime) / 1000000
 

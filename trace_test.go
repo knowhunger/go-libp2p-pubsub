@@ -144,6 +144,9 @@ func (t *traceStats) evaluateStat(evt *pb.TraceEvent, baseTime int64) {
 		if len(t.delay) > 0 {
 			t.delay = t.delay[:len(t.delay)-1]
 		}
+		if len(t.hop) > 0 {
+			t.hop = t.hop[:len(t.hop)-1]
+		}
 	case pb.TraceEvent_RECV_RPC:
 		// check rmsg
 		if len(evt.GetRecvRPC().GetMeta().Messages) > 0 {
