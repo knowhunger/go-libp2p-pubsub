@@ -1,5 +1,5 @@
 cover.out
 prof.out
 go-floodsub.test
-.idea\*
-trace_out\*
+.idea\
+trace_out\
