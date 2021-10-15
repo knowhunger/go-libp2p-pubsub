@@ -340,13 +340,34 @@ func (t *pubsubTracer) UndeliverableMessage(msg *Message) {
 func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 	rpcMeta := new(pb.TraceEvent_RPCMeta)
 
+	if rpc.GetJmpRPC() != nil {
+		var jmps []*pb.TraceEvent_JmpMeta
+		for _, j := range rpc.JmpRPC {
+			var jmpMsg []*pb.TraceEvent_JmpMeta_JmpMsgMeta
+			for _, m := range j.JmpMsgs {
+				jmpMsg = append(jmpMsg, &pb.TraceEvent_JmpMeta_JmpMsgMeta{
+					MsgNumber: m.MsgNumber,
+				})
+			}
+			jmps = append(jmps, &pb.TraceEvent_JmpMeta{
+				JmpMsgs: jmpMsg,
+				JmpMode: rpc.JmpMode,
+				MsgJamMaxPair: &pb.TraceEvent_JmpMeta_JamMaxPairMeta{
+					Jam: j.MsgJamMaxPair.Jam,
+					Max: j.MsgJamMaxPair.Max,
+				},
+			})
+		}
+		rpcMeta.Jmp = jmps
+	}
+
 	var msgs []*pb.TraceEvent_MessageMeta
 	for _, m := range rpc.Publish {
 		msgs = append(msgs, &pb.TraceEvent_MessageMeta{
-			MessageID: []byte(t.msgID(m)),
-			Topic:     m.Topic,
-			Hop:       m.Hop,
-			Timestamp: m.Timestamp,
+			MessageID:  []byte(t.msgID(m)),
+			Topic:      m.Topic,
+			Hop:        m.Hop,
+			Createtime: m.Createtime,
 		})
 	}
 	rpcMeta.Messages = msgs

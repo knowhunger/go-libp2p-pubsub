@@ -12,6 +12,25 @@ message RPC {
 	}
 
 	optional ControlMessage control = 3;
+	repeated JmpMsgRPC jmpRPC = 4;
+	optional string jmpMode = 5;
+	optional bytes sender = 6;
+}
+
+message JmpMsgRPC {
+	message JmpMsg {
+		optional Message msgBuf = 1;
+		optional int64 msgNumber = 2;
+	}
+
+	message JamMaxPair {
+		optional int64 jam = 1;
+		optional int64 max = 2;
+	}
+
+	repeated JmpMsg jmpMsgs = 1;
+	optional JamMaxPair msgJamMaxPair = 2;
+	optional bytes source = 3;
 }
 
 message Message {
@@ -21,8 +40,9 @@ message Message {
 	optional string topic = 4;
 	optional bytes signature = 5;
 	optional bytes key = 6;
+
 	optional int64 hop = 7;
-	optional int64 timestamp = 8;
+	optional int64 createtime = 8;
 }
 
 message ControlMessage {

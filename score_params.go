@@ -10,7 +10,7 @@ import (
 )
 
 type PeerScoreThresholds struct {
-	// GossipThreshold is the score threshold below which gossip propagation is supressed;
+	// GossipThreshold is the score threshold below which sendRPC propagation is supressed;
 	// should be negative.
 	GossipThreshold float64
 
@@ -33,10 +33,10 @@ type PeerScoreThresholds struct {
 
 func (p *PeerScoreThresholds) validate() error {
 	if p.GossipThreshold > 0 || isInvalidNumber(p.GossipThreshold) {
-		return fmt.Errorf("invalid gossip threshold; it must be <= 0 and a valid number")
+		return fmt.Errorf("invalid sendRPC threshold; it must be <= 0 and a valid number")
 	}
 	if p.PublishThreshold > 0 || p.PublishThreshold > p.GossipThreshold || isInvalidNumber(p.PublishThreshold) {
-		return fmt.Errorf("invalid publish threshold; it must be <= 0 and <= gossip threshold and a valid number")
+		return fmt.Errorf("invalid publish threshold; it must be <= 0 and <= sendRPC threshold and a valid number")
 	}
 	if p.GraylistThreshold > 0 || p.GraylistThreshold > p.PublishThreshold || isInvalidNumber(p.GraylistThreshold) {
 		return fmt.Errorf("invalid graylist threshold; it must be <= 0 and <= publish threshold and a valid number")

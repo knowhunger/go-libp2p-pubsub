@@ -35,7 +35,7 @@ func TestMessageCache(t *testing.T) {
 
 	gids := mcache.GetGossipIDs("test")
 	if len(gids) != 10 {
-		t.Fatalf("Expected 10 gossip IDs; got %d", len(gids))
+		t.Fatalf("Expected 10 sendRPC IDs; got %d", len(gids))
 	}
 
 	for i := 0; i < 10; i++ {
@@ -64,7 +64,7 @@ func TestMessageCache(t *testing.T) {
 
 	gids = mcache.GetGossipIDs("test")
 	if len(gids) != 20 {
-		t.Fatalf("Expected 20 gossip IDs; got %d", len(gids))
+		t.Fatalf("Expected 20 sendRPC IDs; got %d", len(gids))
 	}
 
 	for i := 0; i < 10; i++ {
@@ -127,7 +127,7 @@ func TestMessageCache(t *testing.T) {
 
 	gids = mcache.GetGossipIDs("test")
 	if len(gids) != 30 {
-		t.Fatalf("Expected 30 gossip IDs; got %d", len(gids))
+		t.Fatalf("Expected 30 sendRPC IDs; got %d", len(gids))
 	}
 
 	for i := 0; i < 10; i++ {

@@ -89,14 +89,14 @@ type GossipSubParams struct {
 	// Dout must be set below Dlo, and must not exceed D / 2.
 	Dout int
 
-	// gossip parameters
+	// sendRPC parameters
 
-	// HistoryLength controls the size of the message cache used for gossip.
+	// HistoryLength controls the size of the message cache used for sendRPC.
 	// The message cache will remember messages for HistoryLength heartbeats.
 	HistoryLength int
 
 	// HistoryGossip controls how many cached message ids we will advertise in
-	// IHAVE gossip messages. When asked for our seen message IDs, we will return
+	// IHAVE sendRPC messages. When asked for our seen message IDs, we will return
 	// only those from the most recent HistoryGossip heartbeats. The slack between
 	// HistoryGossip and HistoryLength allows us to avoid advertising messages
 	// that will be expired by the time they're requested.
@@ -105,19 +105,19 @@ type GossipSubParams struct {
 	// avoid a runtime panic.
 	HistoryGossip int
 
-	// Dlazy affects how many peers we will emit gossip to at each heartbeat.
-	// We will send gossip to at least Dlazy peers outside our mesh. The actual
+	// Dlazy affects how many peers we will emit sendRPC to at each heartbeat.
+	// We will send sendRPC to at least Dlazy peers outside our mesh. The actual
 	// number may be more, depending on GossipFactor and how many peers we're
 	// connected to.
 	Dlazy int
 
-	// GossipFactor affects how many peers we will emit gossip to at each heartbeat.
-	// We will send gossip to GossipFactor * (total number of non-mesh peers), or
+	// GossipFactor affects how many peers we will emit sendRPC to at each heartbeat.
+	// We will send sendRPC to GossipFactor * (total number of non-mesh peers), or
 	// Dlazy, whichever is greater.
 	GossipFactor float64
 
 	// GossipRetransmission controls how many times we will allow a peer to request
-	// the same message id through IWANT gossip before we start ignoring them. This is designed
+	// the same message id through IWANT sendRPC before we start ignoring them. This is designed
 	// to prevent peers from spamming us with requests and wasting our resources.
 	GossipRetransmission int
 
@@ -225,7 +225,7 @@ func NewGossipSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, er
 	return NewPubSub(ctx, h, rt, opts...)
 }
 
-// DefaultGossipSubParams returns the default gossip sub parameters
+// DefaultGossipSubParams returns the default sendRPC sub parameters
 // as a config.
 func DefaultGossipSubParams() GossipSubParams {
 	return GossipSubParams{
@@ -378,7 +378,7 @@ func WithDirectConnectTicks(t uint64) Option {
 	}
 }
 
-// WithGossipSubParams is a gossip sub router option that allows a custom
+// WithGossipSubParams is a sendRPC sub router option that allows a custom
 // config to be set when instantiating the gossipsub router.
 func WithGossipSubParams(cfg GossipSubParams) Option {
 	return func(ps *PubSub) error {
@@ -477,7 +477,7 @@ func (gs *GossipSubRouter) Attach(p *PubSub) {
 	// start the scoring
 	gs.score.Start(gs)
 
-	// and the gossip tracing
+	// and the sendRPC tracing
 	gs.gossipTracer.Start(gs)
 
 	// and the tracer for connmgr tags
@@ -613,7 +613,7 @@ func (gs *GossipSubRouter) HandleRPC(rpc *RPC) {
 }
 
 func (gs *GossipSubRouter) handleIHave(p peer.ID, ctl *pb.ControlMessage) []*pb.ControlIWant {
-	// we ignore IHAVE gossip from any peer whose score is below the gossip threshold
+	// we ignore IHAVE sendRPC from any peer whose score is below the sendRPC threshold
 	score := gs.score.Score(p)
 	if score < gs.gossipThreshold {
 		log.Debugf("IHAVE: ignoring peer %s with score below threshold [score = %f]", p, score)
@@ -677,7 +677,7 @@ func (gs *GossipSubRouter) handleIHave(p peer.ID, ctl *pb.ControlMessage) []*pb.
 }
 
 func (gs *GossipSubRouter) handleIWant(p peer.ID, ctl *pb.ControlMessage) []*pb.Message {
-	// we don't respond to IWANT requests from any peer whose score is below the gossip threshold
+	// we don't respond to IWANT requests from any peer whose score is below the sendRPC threshold
 	score := gs.score.Score(p)
 	if score < gs.gossipThreshold {
 		log.Debugf("IWANT: ignoring peer %s with score below threshold [score = %f]", p, score)
@@ -1106,7 +1106,7 @@ func (gs *GossipSubRouter) sendRPC(p peer.ID, out *RPC) {
 		delete(gs.control, p)
 	}
 
-	// piggyback gossip
+	// piggyback sendRPC
 	ihave, ok := gs.gossip[p]
 	if ok {
 		if !own {
@@ -1261,7 +1261,7 @@ func fragmentMessageIds(msgIds []string, limit int) [][]string {
 		size := len(msgIds[i]) + protobufOverhead
 		if size > limit {
 			// pathological case where a single message ID exceeds the limit.
-			log.Warnf("message ID length %d exceeds limit %d, removing from outgoing gossip", size, limit)
+			log.Warnf("message ID length %d exceeds limit %d, removing from outgoing sendRPC", size, limit)
 			continue
 		}
 		bucketLen += size
@@ -1509,8 +1509,8 @@ func (gs *GossipSubRouter) heartbeat() {
 			}
 		}
 
-		// 2nd arg are mesh peers excluded from gossip. We already push
-		// messages to them, so its redundant to gossip IHAVEs.
+		// 2nd arg are mesh peers excluded from sendRPC. We already push
+		// messages to them, so its redundant to sendRPC IHAVEs.
 		gs.emitGossip(topic, peers)
 	}
 
@@ -1548,15 +1548,15 @@ func (gs *GossipSubRouter) heartbeat() {
 			}
 		}
 
-		// 2nd arg are fanout peers excluded from gossip. We already push
-		// messages to them, so its redundant to gossip IHAVEs.
+		// 2nd arg are fanout peers excluded from sendRPC. We already push
+		// messages to them, so its redundant to sendRPC IHAVEs.
 		gs.emitGossip(topic, peers)
 	}
 
-	// send coalesced GRAFT/PRUNE messages (will piggyback gossip)
+	// send coalesced GRAFT/PRUNE messages (will piggyback sendRPC)
 	gs.sendGraftPrune(tograft, toprune, noPX)
 
-	// flush all pending gossip that wasn't piggybacked above
+	// flush all pending sendRPC that wasn't piggybacked above
 	gs.flush()
 
 	// advance the message history window
@@ -1678,13 +1678,13 @@ func (gs *GossipSubRouter) emitGossip(topic string, exclude map[peer.ID]struct{}
 	// if we are emitting more than GossipSubMaxIHaveLength mids, truncate the list
 	if len(mids) > gs.params.MaxIHaveLength {
 		// we do the truncation (with shuffling) per peer below
-		log.Debugf("too many messages for gossip; will truncate IHAVE list (%d messages)", len(mids))
+		log.Debugf("too many messages for sendRPC; will truncate IHAVE list (%d messages)", len(mids))
 	}
 
-	// Send gossip to GossipFactor peers above threshold, with a minimum of D_lazy.
+	// Send sendRPC to GossipFactor peers above threshold, with a minimum of D_lazy.
 	// First we collect the peers above gossipThreshold that are not in the exclude set
 	// and then randomly select from that set.
-	// We also exclude direct peers, as there is no reason to emit gossip to them.
+	// We also exclude direct peers, as there is no reason to emit sendRPC to them.
 	peers := make([]peer.ID, 0, len(gs.p.topics[topic]))
 	for p := range gs.p.topics[topic] {
 		_, inExclude := exclude[p]
@@ -1707,7 +1707,7 @@ func (gs *GossipSubRouter) emitGossip(topic string, exclude map[peer.ID]struct{}
 	}
 	peers = peers[:target]
 
-	// Emit the IHAVE gossip to the selected peers.
+	// Emit the IHAVE sendRPC to the selected peers.
 	for _, p := range peers {
 		peerMids := mids
 		if len(mids) > gs.params.MaxIHaveLength {
@@ -1723,14 +1723,14 @@ func (gs *GossipSubRouter) emitGossip(topic string, exclude map[peer.ID]struct{}
 }
 
 func (gs *GossipSubRouter) flush() {
-	// send gossip first, which will also piggyback pending control
+	// send sendRPC first, which will also piggyback pending control
 	for p, ihave := range gs.gossip {
 		delete(gs.gossip, p)
 		out := rpcWithControl(nil, ihave, nil, nil, nil)
 		gs.sendRPC(p, out)
 	}
 
-	// send the remaining control messages that wasn't merged with gossip
+	// send the remaining control messages that wasn't merged with sendRPC
 	for p, ctl := range gs.control {
 		delete(gs.control, p)
 		out := rpcWithControl(nil, nil, nil, ctl.Graft, ctl.Prune)
@@ -1755,7 +1755,7 @@ func (gs *GossipSubRouter) piggybackGossip(p peer.ID, out *RPC, ihave []*pb.Cont
 }
 
 func (gs *GossipSubRouter) pushControl(p peer.ID, ctl *pb.ControlMessage) {
-	// remove IHAVE/IWANT from control message, gossip is not retried
+	// remove IHAVE/IWANT from control message, sendRPC is not retried
 	ctl.Ihave = nil
 	ctl.Iwant = nil
 	if ctl.Graft != nil || ctl.Prune != nil {

@@ -107,13 +107,33 @@ message TraceEvent {
     repeated MessageMeta messages = 1;
     repeated SubMeta subscription = 2;
     optional ControlMeta control = 3;
+
+    repeated JmpMeta jmp = 4;
+  }
+
+  message JmpMeta {
+    message JmpMsgMeta {
+      optional MessageMeta msgBuf = 1;
+      optional int64 msgNumber = 2;
+    }
+
+    message JamMaxPairMeta {
+      optional int64 jam = 1;
+      optional int64 max = 2;
+    }
+
+    repeated JmpMsgMeta jmpMsgs = 1;
+    optional JamMaxPairMeta msgJamMaxPair = 2;
+    optional bytes source = 3;
+    optional string jmpMode = 4;
   }
 
   message MessageMeta {
     optional bytes messageID = 1;
     optional string topic = 2;
+
     optional int64 hop = 3;
-    optional int64 timestamp = 4;
+    optional int64 createtime = 4;
   }
 
   message SubMeta {

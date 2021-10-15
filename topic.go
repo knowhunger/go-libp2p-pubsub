@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"sync"
 	"time"
-
-	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 )
@@ -219,12 +218,12 @@ func (t *Topic) Publish(ctx context.Context, data []byte, opts ...PubOpt) error 
 	var zero int64 = 0
 	now := time.Now().UnixNano()
 	m := &pb.Message{
-		Data:      data,
-		Topic:     &t.topic,
-		From:      nil,
-		Seqno:     nil,
-		Hop:       &zero,
-		Timestamp: &now,
+		Data:       data,
+		Topic:      &t.topic,
+		From:       nil,
+		Seqno:      nil,
+		Hop:        &zero,
+		Createtime: &now,
 	}
 	if t.p.signID != "" {
 		m.From = []byte(t.p.signID)
