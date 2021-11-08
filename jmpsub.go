@@ -17,21 +17,25 @@ const (
 )
 
 var (
-	JmpMinFan        = 6
-	JmpMaxFan        = 6
-	JmpMaxBuf        = 30
-	JmpMaxHistory    = 120 // gossipsub = 5000
-	JmpInitialDelay  = 100 * time.Millisecond
-	JmpCycleInterval = 250 * time.Millisecond
+	JmpMinFan                = 6
+	JmpMaxFan                = 6
+	JmpMaxMsgBuf             = 30
+	JmpMaxHistory            = 120 // gossipsub = 5000
+	JMPMaxGenerateMsg        = 5000
+	JmpInitialDelay          = 100 * time.Millisecond
+	JmpCycleInterval         = 250 * time.Millisecond
+	JmpSentPeerMaintainCycle = 4
 )
 
 type JmpSubParams struct {
-	MinFan        int
-	MaxFan        int
-	MaxMsgBuf     int
-	MaxHistoryBuf int
-	InitialDelay  time.Duration
-	CycleInterval time.Duration
+	MinFan                int
+	MaxFan                int
+	MaxMsgBuf             int
+	MaxHistoryBuf         int
+	MaxGenerateMsg        int
+	InitialDelay          time.Duration
+	CycleInterval         time.Duration
+	SentPeerMaintainCycle int
 }
 
 type JamMaxPair struct {
@@ -52,33 +56,6 @@ type JmpMsgBuf struct {
 	source peer.ID
 }
 
-//func (msg *JmpMsg) incMsgNum() {
-//	msg.msgNumber++
-//}
-
-//func (msg *JmpMsg) compareTo(anotherMsg JmpMsg) int {
-//	after := 1
-//	equal := 0
-//	before := -1
-//
-//	if msg.msgNumber > anotherMsg.msgNumber {
-//		return after
-//	}
-//	if msg.msgNumber < anotherMsg.msgNumber {
-//		return before
-//	}
-//	if msg.msgNumber == anotherMsg.msgNumber {
-//		if msg.msgSrc > anotherMsg.msgSrc {
-//			return after
-//		}
-//		if msg.msgSrc < anotherMsg.msgSrc {
-//			return before
-//		}
-//	}
-//
-//	return equal
-//}
-
 func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error) {
 	params := DefaultJmpSubParams()
 	rt := &JmpSubRouter{
@@ -87,6 +64,8 @@ func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error
 		gossipJMP:  make(map[peer.ID]*JamMaxPair),
 		history:    make(map[peer.ID][]*JmpMsg),
 		msgBuf:     make(map[peer.ID]*JmpMsgBuf),
+		myMsg:      make([]*JmpMsg, 0, params.MaxGenerateMsg),
+		sentPeer:   make(map[peer.ID]int),
 		mcache:     NewMessageCache(params.MinFan, params.MaxHistoryBuf),
 		protos:     []protocol.ID{JmpSubID},
 		params:     params,
@@ -98,12 +77,14 @@ func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error
 
 func DefaultJmpSubParams() JmpSubParams {
 	return JmpSubParams{
-		MinFan:        JmpMinFan,
-		MaxFan:        JmpMaxFan,
-		MaxMsgBuf:     JmpMaxBuf,
-		MaxHistoryBuf: JmpMaxHistory,
-		InitialDelay:  JmpInitialDelay,
-		CycleInterval: JmpCycleInterval,
+		MinFan:                JmpMinFan,
+		MaxFan:                JmpMaxFan,
+		MaxMsgBuf:             JmpMaxMsgBuf,
+		MaxHistoryBuf:         JmpMaxHistory,
+		MaxGenerateMsg:        JMPMaxGenerateMsg,
+		InitialDelay:          JmpInitialDelay,
+		CycleInterval:         JmpCycleInterval,
+		SentPeerMaintainCycle: JmpSentPeerMaintainCycle,
 	}
 }
 
@@ -117,7 +98,8 @@ type JmpSubRouter struct {
 	history map[peer.ID][]*JmpMsg
 	msgBuf  map[peer.ID]*JmpMsgBuf
 
-	myMsg []*JmpMsg
+	myMsg    []*JmpMsg
+	sentPeer map[peer.ID]int
 
 	protos []protocol.ID
 
@@ -232,8 +214,6 @@ func (jmp *JmpSubRouter) HandleRPC(rpc *RPC) {
 	}
 
 	if *rpc.JmpMode == "PUSH" {
-		//pullBuf = jmp.loadPushGossip()
-
 		out := jmp.rpcWithMsgBufs(pullBuf, "PULL")
 
 		if out != nil {
@@ -316,8 +296,6 @@ func (jmp *JmpSubRouter) nextCycle() {
 }
 
 func (jmp *JmpSubRouter) gossip() {
-	//fmt.Println("do gossip func : ", jmp.p.signID)
-
 	// 1a) When load push gossip 준비
 	pushBuf := jmp.loadPushGossip()
 
@@ -334,6 +312,27 @@ func (jmp *JmpSubRouter) gossip() {
 			for pid := range toSend {
 				jmp.sendRPC(pid, out)
 			}
+		}
+	}
+
+	isSentAll := false
+	for _, cnt := range jmp.sentPeer {
+		if cnt == 0 {
+			isSentAll = false
+			break
+		}
+		isSentAll = true
+		//if cnt > 0 {
+		//	jmp.sentPeer[id] += 1
+		//}
+		//if cnt >= jmp.params.SentPeerMaintainCycle {
+		//	jmp.sentPeer[id] = 0
+		//}
+	}
+
+	if isSentAll {
+		for id, _ := range jmp.sentPeer {
+			jmp.sentPeer[id] = 0
 		}
 	}
 
@@ -433,7 +432,11 @@ func (jmp *JmpSubRouter) numbering(msg *Message) *JmpMsg {
 		msgSender: jmp.p.signID,
 	}
 
-	if jmp.myMsg == nil {
+	if len(jmp.myMsg) > jmp.params.MaxGenerateMsg {
+		jmp.myMsg = jmp.myMsg[1:]
+	}
+
+	if len(jmp.myMsg) == 0 {
 		jmpmsg.msgNumber = 1
 		jmp.myMsg = append(jmp.myMsg, jmpmsg)
 	} else {
@@ -446,10 +449,10 @@ func (jmp *JmpSubRouter) numbering(msg *Message) *JmpMsg {
 }
 
 func (jmp *JmpSubRouter) putHistory(jmpMsgs ...*JmpMsg) {
+loop:
 	for _, msg := range jmpMsgs {
 		src := msg.msgSrc
 
-		isExist := false
 		if his, ok := jmp.history[src]; ok {
 			// history buf 사이즈의 최대에 도달 했을 때...
 			if len(his) > jmp.params.MaxHistoryBuf {
@@ -460,14 +463,9 @@ func (jmp *JmpSubRouter) putHistory(jmpMsgs ...*JmpMsg) {
 			// msg 가 중복되어 저장 되지 않도록 함
 			for _, exist := range his {
 				if msg.msgNumber == exist.msgNumber {
-					isExist = true
-					break
+					continue loop
 				}
 			}
-		}
-
-		if isExist {
-			continue
 		}
 
 		jmp.history[src] = append(jmp.history[src], msg)
@@ -558,22 +556,26 @@ func (jmp *JmpSubRouter) choiceFanout(topic string) map[peer.ID]struct{} {
 	}
 
 	for p := range tmap {
+		jmp.sentPeer[p] += 1
 		toSend[p] = struct{}{}
 	}
 
 	return toSend
 }
 
-func (jmp *JmpSubRouter) getRandomPeers(tmap map[peer.ID]struct{}, count int) []peer.ID {
-	peers := make([]peer.ID, 0, len(tmap))
-	for p := range tmap {
-		peers = append(peers, p)
+func (jmp *JmpSubRouter) getRandomPeers(pmap map[peer.ID]struct{}, fanout int) []peer.ID {
+	peers := make([]peer.ID, 0, len(pmap))
+	for p := range pmap {
+		if jmp.sentPeer[p] == 0 {
+			peers = append(peers, p)
+		}
 	}
 
+	//fmt.Println(len(peers))
 	shufflePeers(peers)
 
-	if count > 0 && len(peers) > count {
-		peers = peers[:count]
+	if fanout > 0 && len(peers) > fanout {
+		peers = peers[:fanout]
 	}
 
 	return peers

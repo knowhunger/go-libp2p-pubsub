@@ -24,28 +24,60 @@ import (
 	"github.com/libp2p/go-msgio/protoio"
 )
 
-func getGossipsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
-	ps, err := NewGossipSub(ctx, h, opts...)
-	if err != nil {
-		panic(err)
+type something struct {
+	ctx   context.Context
+	intCh chan int
+	strCh chan string
+}
+
+func NewSomething(ctx context.Context) *something {
+	return &something{
+		ctx:   ctx,
+		intCh: make(chan int, 5),
+		strCh: make(chan string),
 	}
-	return ps
 }
 
 func TestSomething(t *testing.T) {
-	a := []int{3, 5, 7, 9}
+	ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel()
 
-	jam := 0
-	max := 0
-	for i := 0; i < len(a)-1; i++ {
-		if a[i+1] == a[i]+1 {
-			jam = a[i+1]
-		} else {
-			break
+	st := NewSomething(ctx)
+
+	go st.doSomethingIterInt()
+	go st.doSomethingIterStr()
+
+	for i := 0; i < 5; i++ {
+		st.intCh <- i
+	}
+
+	time.Sleep(10 * time.Second)
+	cancel()
+}
+
+func (st *something) doSomethingIterInt() {
+	for {
+		select {
+		case num := <-st.intCh:
+			fmt.Println(num * num)
+			time.Sleep(time.Second)
+			st.strCh <- fmt.Sprintf("%d complete", num)
+		case <-st.ctx.Done():
+			return
 		}
 	}
-	max = a[len(a)-1]
-	fmt.Println(jam, max)
+}
+
+func (st *something) doSomethingIterStr() {
+	for {
+		select {
+		case str := <-st.strCh:
+			fmt.Println(str)
+			time.Sleep(time.Second)
+		case <-st.ctx.Done():
+			return
+		}
+	}
 }
 
 // difference returns the elements in `a` that aren't in `b`.
@@ -61,6 +93,14 @@ func difference(a, b []int) []int {
 		}
 	}
 	return diff
+}
+
+func getGossipsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
+	ps, err := NewGossipSub(ctx, h, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return ps
 }
 
 func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSub {
@@ -105,19 +145,26 @@ func TestSparseGossipsub(t *testing.T) {
 	}
 
 	// build random connect
-	//sparseConnect(t, hosts) // connect to 3 random peers
-	denseConnect(t, hosts) // connect to 10 random peers
+	sparseConnect(t, hosts) // connect to 3 random peers
+	//denseConnect(t, hosts) // connect to 10 random peers
+	//fullConnect(t, hosts)
 
 	// build centralized connect (like star shape)
 	//for i := 1; i < numOfHosts; i++ {
 	//	connect(t, hosts[0], hosts[i])
 	//}
 
+	fmt.Println(len(topics))
+	for i, ps := range psubs {
+		fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+	}
+
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
 	//publish based random owner
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 50; i++ {
+		fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := rand.Intn(len(psubs))
@@ -135,6 +182,12 @@ func TestSparseGossipsub(t *testing.T) {
 			}
 			if !bytes.Equal(msg, got.Data) {
 				t.Fatal("got wrong message!")
+			}
+		}
+
+		if i%10 == 0 {
+			for i, ps := range psubs {
+				fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
 			}
 		}
 	}
@@ -168,15 +221,21 @@ func TestSparseGossipsub(t *testing.T) {
 }
 
 func TestDenseGossipsub(t *testing.T) {
+	GossipSubFanoutTTL = 1 * time.Second
+	defer func() {
+		GossipSubFanoutTTL = 60 * time.Second
+	}()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 20)
+	hosts := getNetHosts(t, ctx, 5)
 
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tps := range topics {
+		subch, err := tps.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,17 +243,21 @@ func TestDenseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	denseConnect(t, hosts)
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+	//connect(t, hosts[2], hosts[3])
+	connect(t, hosts[3], hosts[4])
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
 	for i := 0; i < 100; i++ {
+		fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := rand.Intn(len(psubs))
 
-		psubs[owner].Publish("foobar", msg)
+		topics[owner].Publish(ctx, msg)
 
 		for _, sub := range msgs {
 			got, err := sub.Next(ctx)
@@ -721,10 +784,11 @@ func TestGossipsubRemovePeer(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 20)
 
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tps := range topics {
+		subch, err := tps.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -734,23 +798,32 @@ func TestGossipsubRemovePeer(t *testing.T) {
 
 	denseConnect(t, hosts)
 
+	for i, ps := range psubs {
+		fmt.Println(i, "'s peer", "len topics:", len(ps.topics["foobar"]),
+			"len peers:", len(ps.rt.(*GossipSubRouter).mesh["foobar"]))
+	}
+
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
 	// disconnect some peers to exercise RemovePeer paths
-	for _, host := range hosts[:5] {
+	for _, host := range hosts[:15] {
 		host.Close()
 	}
 
 	// wait a heartbeat
 	time.Sleep(time.Second * 1)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
+		fmt.Println("publish msg")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := 5 + rand.Intn(len(psubs)-5)
 
-		psubs[owner].Publish("foobar", msg)
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			return
+		}
 
 		for _, sub := range msgs[5:] {
 			got, err := sub.Next(ctx)
@@ -759,6 +832,13 @@ func TestGossipsubRemovePeer(t *testing.T) {
 			}
 			if !bytes.Equal(msg, got.Data) {
 				t.Fatal("got wrong message!")
+			}
+		}
+
+		if i%10 == 0 {
+			for i, ps := range psubs {
+				fmt.Println(i, "'s peer", "len topics:", len(ps.topics["foobar"]),
+					"len peers:", len(ps.rt.(*GossipSubRouter).mesh["foobar"]))
 			}
 		}
 	}

@@ -402,6 +402,13 @@ func WithGossipSubParams(cfg GossipSubParams) Option {
 // to use for injecting our messages in the overlay with stable routes; this
 // is the fanout map. Fanout peer lists are expired if we don't publish any
 // messages to their topic for GossipSubFanoutTTL.
+type membershipRouter struct {
+}
+
+func (m *membershipRouter) AddPeer(p peer.ID, proto protocol.ID) {
+
+}
+
 type GossipSubRouter struct {
 	p        *PubSub
 	peers    map[peer.ID]protocol.ID          // peer protocols
@@ -459,6 +466,8 @@ type GossipSubRouter struct {
 	// number of heartbeats since the beginning of time; this allows us to amortize some resource
 	// clean up -- eg backoff clean up.
 	heartbeatTicks uint64
+
+	membershipRouter
 }
 
 type connectInfo struct {
@@ -471,21 +480,27 @@ func (gs *GossipSubRouter) Protocols() []protocol.ID {
 }
 
 func (gs *GossipSubRouter) Attach(p *PubSub) {
+	// both router
 	gs.p = p
 	gs.tracer = p.tracer
 
+	// only gossipsub
 	// start the scoring
 	gs.score.Start(gs)
 
+	// only gossipsub
 	// and the sendRPC tracing
 	gs.gossipTracer.Start(gs)
 
+	// only gossipsub
 	// and the tracer for connmgr tags
 	gs.tagTracer.Start(gs)
 
+	// only gossipsub || both router
 	// start using the same msg ID function as PubSub for caching messages.
 	gs.mcache.SetMsgIdFn(p.msgID)
 
+	// only gossipsub || both router
 	// start the heartbeat
 	go gs.heartbeatTimer()
 
@@ -954,13 +969,16 @@ func (gs *GossipSubRouter) Publish(msg *Message) {
 		return
 	}
 
+	// 현재 protocol 이 floodsub 이고, msg 의 generator 가 본인일 때
 	if gs.floodPublish && from == gs.p.host.ID() {
 		for p := range tmap {
+			// direct 연결 된 peer 들에게 msg 전송
 			_, direct := gs.direct[p]
 			if direct || gs.score.Score(p) >= gs.publishThreshold {
 				tosend[p] = struct{}{}
 			}
 		}
+		// protocol 이 gossipsub 인 경우 아래 code 를 따름
 	} else {
 		// direct peers
 		for p := range gs.direct {

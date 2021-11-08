@@ -4,11 +4,47 @@ import (
 	"context"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
 )
+
+type testInterface interface {
+	runfunc()
+}
+
+type testSt struct {
+	testShadow
+}
+
+func newTestSt() *testSt {
+	return &testSt{
+		testShadow{testInt: 5},
+	}
+}
+
+func (ts *testSt) runfunc() {
+	fmt.Println("this is struct")
+
+	ts.testShadow.runfunc()
+}
+
+type testShadow struct {
+	testInt int
+}
+
+func (tsh *testShadow) runfunc() {
+	fmt.Println("this is shadow")
+	fmt.Println(tsh.testInt)
+}
+
+func TestShadow(t *testing.T) {
+	ts := newTestSt()
+
+	ts.runfunc()
+}
 
 func getJmpsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 	ps, err := NewJmpSub(ctx, h, opts...)
@@ -37,7 +73,7 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 100
+	numHosts := 30
 	numMsgs := 50
 
 	hosts := getNetHosts(t, ctx, numHosts)
@@ -55,7 +91,14 @@ func TestJmpPublish(t *testing.T) {
 	}
 
 	// full connect
-	connectSome(t, hosts, numHosts)
+	//connectAll(t, hosts)
+	//connectSome(t, hosts, numHosts)
+	//denseConnect(t, hosts)
+	sparseConnect(t, hosts)
+
+	for i, ps := range psubs {
+		fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+	}
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
@@ -74,6 +117,12 @@ func TestJmpPublish(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		if i%10 == 0 {
+			for i, ps := range psubs {
+				fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+			}
+		}
 	}
 
 	time.Sleep(time.Second * 5)
@@ -89,7 +138,7 @@ func TestJmpPublish(t *testing.T) {
 		fmt.Println(ow, "sent a total of", len(msgNum), "msgs: \t", msgNum)
 
 		for i, ps := range psubs {
-			//assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
+			assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
 			var recvMsgs []string
 			for _, msg := range ps.rt.(*JmpSubRouter).history[psubs[ow].signID] {
 				stringMsg := strings.Split(string(msg.Data), " ")
