@@ -220,6 +220,8 @@ func NewGossipSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, er
 		params:    params,
 	}
 
+	rt.membershipRouter.rt = rt
+
 	// hook the tag tracer
 	opts = append(opts, WithRawTracer(rt.tagTracer))
 	return NewPubSub(ctx, h, rt, opts...)
@@ -402,13 +404,6 @@ func WithGossipSubParams(cfg GossipSubParams) Option {
 // to use for injecting our messages in the overlay with stable routes; this
 // is the fanout map. Fanout peer lists are expired if we don't publish any
 // messages to their topic for GossipSubFanoutTTL.
-type membershipRouter struct {
-}
-
-func (m *membershipRouter) AddPeer(p peer.ID, proto protocol.ID) {
-
-}
-
 type GossipSubRouter struct {
 	p        *PubSub
 	peers    map[peer.ID]protocol.ID          // peer protocols
@@ -523,9 +518,11 @@ func (gs *GossipSubRouter) Attach(p *PubSub) {
 }
 
 func (gs *GossipSubRouter) AddPeer(p peer.ID, proto protocol.ID) {
-	log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
-	gs.tracer.AddPeer(p, proto)
-	gs.peers[p] = proto
+	gs.membershipRouter.AddPeer(p, proto)
+
+	//log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
+	//gs.tracer.AddPeer(p, proto)
+	//gs.peers[p] = proto
 
 	// track the connection direction
 	outbound := false
@@ -552,9 +549,11 @@ loop:
 }
 
 func (gs *GossipSubRouter) RemovePeer(p peer.ID) {
-	log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
-	gs.tracer.RemovePeer(p)
-	delete(gs.peers, p)
+	gs.membershipRouter.RemovePeer(p)
+
+	//log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
+	//gs.tracer.RemovePeer(p)
+	//delete(gs.peers, p)
 	for _, peers := range gs.mesh {
 		delete(peers, p)
 	}
@@ -1036,8 +1035,9 @@ func (gs *GossipSubRouter) Join(topic string) {
 		return
 	}
 
-	log.Debugf("JOIN %s", topic)
-	gs.tracer.Join(topic)
+	gs.membershipRouter.Join(topic)
+	//log.Debugf("JOIN %s", topic)
+	//gs.tracer.Join(topic)
 
 	gmap, ok = gs.fanout[topic]
 	if ok {
@@ -1087,8 +1087,9 @@ func (gs *GossipSubRouter) Leave(topic string) {
 		return
 	}
 
-	log.Debugf("LEAVE %s", topic)
-	gs.tracer.Leave(topic)
+	gs.membershipRouter.Leave(topic)
+	//log.Debugf("LEAVE %s", topic)
+	//gs.tracer.Leave(topic)
 
 	delete(gs.mesh, topic)
 

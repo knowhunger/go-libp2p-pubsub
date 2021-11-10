@@ -221,10 +221,10 @@ func TestSparseGossipsub(t *testing.T) {
 }
 
 func TestDenseGossipsub(t *testing.T) {
-	GossipSubFanoutTTL = 1 * time.Second
-	defer func() {
-		GossipSubFanoutTTL = 60 * time.Second
-	}()
+	//GossipSubFanoutTTL = 1 * time.Second
+	//defer func() {
+	//	GossipSubFanoutTTL = 60 * time.Second
+	//}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
