@@ -835,7 +835,7 @@ func TestMinTopicSizeNoDiscovery(t *testing.T) {
 		}
 	}
 
-	// Subscribe the second receiver; the publish should now work.
+	// Subscribe the second isMsgUpdated; the publish should now work.
 	receiveTopic2, err := receiver2.Join(topicID)
 	if err != nil {
 		t.Fatal(err)

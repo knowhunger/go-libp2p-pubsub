@@ -17,12 +17,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type experimentsStats struct {
 	gmsg, smsg, rmsg int
 	hmsg             map[string]*hmsgInfo
+	dmsg, hitmsg     int
 }
 
 type hmsgInfo struct {
@@ -60,6 +62,11 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				}
 			}
 		}
+		if len(evt.RecvRPC.Meta.Jmp) > 0 {
+			for _, jmp := range evt.RecvRPC.Meta.Jmp {
+				es.rmsg += len(jmp.JmpMsgs)
+			}
+		}
 	case pb.TraceEvent_SEND_RPC:
 		if len(evt.SendRPC.Meta.Messages) > 0 {
 			// check only msg rpc
@@ -68,6 +75,15 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				es.smsg++
 			}
 		}
+		if len(evt.SendRPC.Meta.Jmp) > 0 {
+			for _, jmp := range evt.SendRPC.Meta.Jmp {
+				es.smsg += len(jmp.JmpMsgs)
+			}
+		}
+	case pb.TraceEvent_DUPLICATE_MESSAGE:
+		es.dmsg++
+	case pb.TraceEvent_HIT_MESSAGE:
+		es.hitmsg++
 	}
 }
 
@@ -78,7 +94,8 @@ func opsPublish(ctx context.Context, tp *Topic, msgs []*Subscription, fileInfo f
 	//min := 50
 	//max := 200
 
-	for _, op := range ops {
+	for i, op := range ops {
+		time.Sleep(100 * time.Millisecond)
 		//networkDelay := rand.Intn(max - min + 1) + min
 		//time.Sleep(time.Millisecond * time.Duration(networkDelay))
 
@@ -94,16 +111,22 @@ func opsPublish(ctx context.Context, tp *Topic, msgs []*Subscription, fileInfo f
 			panic(err)
 		}
 
-		for _, sub := range msgs {
-			_, err := sub.Next(ctx)
-			if err != nil {
-				panic(sub.err)
-			}
-			//if !bytes.Equal(msg, got.Data) {
-			//	fmt.Println(string(msg))
-			//	fmt.Println(string(got.Data))
-			//	panic("got wrong message!")
-			//}
+		//for _, sub := range msgs {
+		//	_, err := sub.Next(ctx)
+		//	if err != nil {
+		//		panic(sub.err)
+		//	}
+		//	//if !bytes.Equal(msg, got.Data) {
+		//	//	fmt.Println(string(msg))
+		//	//	fmt.Println(string(got.Data))
+		//	//	panic("got wrong message!")
+		//	//}
+		//}
+		if i%100 == 0 {
+			fmt.Println("send msg", i, "번 째", len(ops))
+		}
+		if i > 1000 {
+			break
 		}
 	}
 	//ElapsedTime(operationTime, owner, "msg publish")
@@ -115,13 +138,17 @@ func printStat(psubs []*PubSub) {
 	type statGroup struct {
 		gmsg, smsg, rmsg, hmsg int
 		delay, hop             []int
+		dmsg, hitmsg           int
 	}
 
+	var wg sync.WaitGroup
 	totalStat := &statGroup{}
-	totalStatChan := make(chan statGroup)
+	totalStatChan := make(chan statGroup, len(psubs))
 	for i := 0; i < len(psubs); i++ {
+		wg.Add(1)
 		go func(i int, totalStatChan chan statGroup) {
-			var gmsg, smsg, rmsg, hmsg int
+			//var gmsg, smsg, rmsg, hmsg int
+			//var dmsg int
 			var delay, hop []int
 			var evt pb.TraceEvent
 			stats := &experimentsStats{hmsg: make(map[string]*hmsgInfo)}
@@ -147,11 +174,8 @@ func printStat(psubs []*PubSub) {
 			fmt.Println("smsg cnt", stats.smsg)
 			fmt.Println("rmsg cnt", stats.rmsg)
 			fmt.Println("hmsg cnt", len(stats.hmsg))
-
-			gmsg += stats.gmsg
-			smsg += stats.smsg
-			rmsg += stats.rmsg
-			hmsg += len(stats.hmsg)
+			fmt.Println("dmsg cnt", stats.dmsg)
+			fmt.Println("hitmsg cnt", stats.hitmsg)
 
 			for _, hm := range stats.hmsg {
 				delay = append(delay, hm.delay)
@@ -160,12 +184,18 @@ func printStat(psubs []*PubSub) {
 
 			fmt.Println()
 
-			totalStatChan <- statGroup{gmsg: gmsg, smsg: smsg, rmsg: rmsg, hmsg: hmsg, delay: delay, hop: hop}
-
+			totalStatChan <- statGroup{
+				gmsg: stats.gmsg, smsg: stats.smsg, rmsg: stats.rmsg, hmsg: len(stats.hmsg),
+				delay: delay, hop: hop,
+				dmsg: stats.dmsg, hitmsg: stats.hitmsg}
+			wg.Done()
 		}(i, totalStatChan)
 	}
 
-	cnt := 0
+	wg.Wait()
+	close(totalStatChan)
+
+	//cnt := 0
 	for c := range totalStatChan {
 		totalStat.gmsg += c.gmsg
 		totalStat.smsg += c.smsg
@@ -173,10 +203,12 @@ func printStat(psubs []*PubSub) {
 		totalStat.hmsg += c.hmsg
 		totalStat.delay = append(totalStat.delay, c.delay...)
 		totalStat.hop = append(totalStat.hop, c.hop...)
-		cnt++
-		if cnt == len(psubs) {
-			close(totalStatChan)
-		}
+		totalStat.dmsg += c.dmsg
+		totalStat.hitmsg += c.hitmsg
+		//cnt++
+		//if cnt == len(psubs) {
+		//	close(totalStatChan)
+		//}
 	}
 
 	fmt.Println("total gmsg: ", totalStat.gmsg)
@@ -185,9 +217,15 @@ func printStat(psubs []*PubSub) {
 	fmt.Println("total hmsg: ", totalStat.hmsg)
 	fmt.Println("excepted hmsg: ", totalStat.gmsg*(len(psubs)-1))
 
+	fmt.Println("total dmsg", totalStat.dmsg)
+	fmt.Println("total hitmsg", totalStat.hitmsg)
+
 	//var coverage float64
 	coverage := float64(totalStat.hmsg) / (float64(totalStat.gmsg) * float64(len(psubs)-1))
 	fmt.Println("final Coverage: ", coverage)
+
+	hitCoverage := float64(totalStat.hitmsg) / (float64(totalStat.gmsg) * float64(len(psubs)-1))
+	fmt.Println("final hit Coverage: ", hitCoverage)
 
 	//var redundancy float64
 	redundancy := float64(totalStat.smsg) / (float64(totalStat.gmsg) * float64(len(psubs)-1))

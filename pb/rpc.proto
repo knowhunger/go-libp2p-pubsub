@@ -13,7 +13,7 @@ message RPC {
 
 	optional ControlMessage control = 3;
 	repeated JmpMsgRPC jmpRPC = 4;
-	optional string jmpMode = 5;
+	optional uint64 jmpMode = 5;
 	optional bytes sender = 6;
 }
 

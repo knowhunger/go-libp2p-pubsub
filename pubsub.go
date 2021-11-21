@@ -1028,7 +1028,7 @@ func (p *PubSub) handleIncomingRPC(rpc *RPC) {
 		}
 	}
 
-	// ask the router to vet the peer before commiting any processing resources
+	// ask the router to vet the peer before committing any processing resources
 	switch p.rt.AcceptFrom(rpc.from) {
 	case AcceptNone:
 		log.Debugf("received RPC from router graylisted peer %s; dropping RPC", rpc.from)

@@ -24,77 +24,6 @@ import (
 	"github.com/libp2p/go-msgio/protoio"
 )
 
-type something struct {
-	ctx   context.Context
-	intCh chan int
-	strCh chan string
-}
-
-func NewSomething(ctx context.Context) *something {
-	return &something{
-		ctx:   ctx,
-		intCh: make(chan int, 5),
-		strCh: make(chan string),
-	}
-}
-
-func TestSomething(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
-
-	st := NewSomething(ctx)
-
-	go st.doSomethingIterInt()
-	go st.doSomethingIterStr()
-
-	for i := 0; i < 5; i++ {
-		st.intCh <- i
-	}
-
-	time.Sleep(10 * time.Second)
-	cancel()
-}
-
-func (st *something) doSomethingIterInt() {
-	for {
-		select {
-		case num := <-st.intCh:
-			fmt.Println(num * num)
-			time.Sleep(time.Second)
-			st.strCh <- fmt.Sprintf("%d complete", num)
-		case <-st.ctx.Done():
-			return
-		}
-	}
-}
-
-func (st *something) doSomethingIterStr() {
-	for {
-		select {
-		case str := <-st.strCh:
-			fmt.Println(str)
-			time.Sleep(time.Second)
-		case <-st.ctx.Done():
-			return
-		}
-	}
-}
-
-// difference returns the elements in `a` that aren't in `b`.
-func difference(a, b []int) []int {
-	mb := make(map[int]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
-	}
-	var diff []int
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-	return diff
-}
-
 func getGossipsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 	ps, err := NewGossipSub(ctx, h, opts...)
 	if err != nil {
@@ -226,9 +155,12 @@ func TestDenseGossipsub(t *testing.T) {
 	//	GossipSubFanoutTTL = 60 * time.Second
 	//}()
 
+	numHosts := 50
+	numMsgs := 100
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 5)
+	hosts := getNetHosts(t, ctx, numHosts)
 
 	psubs := getGossipsubs(ctx, hosts)
 	topics := getTopics(psubs, "foobar")
@@ -243,21 +175,27 @@ func TestDenseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	connect(t, hosts[0], hosts[1])
-	connect(t, hosts[1], hosts[2])
-	//connect(t, hosts[2], hosts[3])
-	connect(t, hosts[3], hosts[4])
+	//connectAll(t, hosts)
+	denseConnect(t, hosts)
+	//connect(t, hosts[0], hosts[1])
+	//connect(t, hosts[1], hosts[2])
+	////connect(t, hosts[2], hosts[3])
+	//connect(t, hosts[3], hosts[4])
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
-	for i := 0; i < 100; i++ {
-		fmt.Println("msg publish")
+	for i := 0; i < numMsgs; i++ {
+		//fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
-		owner := rand.Intn(len(psubs))
+		//owner := rand.Intn(len(psubs))
+		owner := rand.Intn(10)
 
-		topics[owner].Publish(ctx, msg)
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			return
+		}
 
 		for _, sub := range msgs {
 			got, err := sub.Next(ctx)
@@ -269,6 +207,8 @@ func TestDenseGossipsub(t *testing.T) {
 			}
 		}
 	}
+
+	printStat(psubs)
 }
 
 func TestGossipsubFanout(t *testing.T) {

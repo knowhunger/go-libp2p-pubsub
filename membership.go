@@ -6,60 +6,45 @@ import (
 )
 
 type membershipRouter struct {
+	p  *PubSub
 	rt PubSubRouter
+
+	peers map[peer.ID]protocol.ID
+
+	tracer *pubsubTracer
 }
 
 func NewMembershipRouter(router PubSubRouter) *membershipRouter {
 	return &membershipRouter{
-		rt: router,
+		rt:    router,
+		peers: make(map[peer.ID]protocol.ID),
 	}
+}
+
+func (mr *membershipRouter) Attach(p *PubSub) {
+	mr.p = p
+	mr.tracer = p.tracer
+
 }
 
 func (mr *membershipRouter) AddPeer(p peer.ID, proto protocol.ID) {
 	log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
-	if gs, ok := mr.rt.(*GossipSubRouter); ok {
-		gs.tracer.AddPeer(p, proto)
-		gs.peers[p] = proto
-	}
-
-	if js, ok := mr.rt.(*JmpSubRouter); ok {
-		js.tracer.AddPeer(p, proto)
-		js.peers[p] = proto
-	}
+	mr.tracer.AddPeer(p, proto)
+	mr.peers[p] = proto
 }
 
 func (mr *membershipRouter) RemovePeer(p peer.ID) {
 	log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
-
-	if gs, ok := mr.rt.(*GossipSubRouter); ok {
-		gs.tracer.RemovePeer(p)
-		delete(gs.peers, p)
-	}
-
-	if js, ok := mr.rt.(*JmpSubRouter); ok {
-		js.tracer.RemovePeer(p)
-		delete(js.peers, p)
-	}
+	mr.tracer.RemovePeer(p)
+	delete(mr.peers, p)
 }
 
 func (mr *membershipRouter) Join(topic string) {
 	log.Debugf("JOIN %s", topic)
-
-	if gs, ok := mr.rt.(*GossipSubRouter); ok {
-		gs.tracer.Join(topic)
-	}
-	if js, ok := mr.rt.(*JmpSubRouter); ok {
-		js.tracer.Join(topic)
-	}
+	mr.tracer.Join(topic)
 }
 
 func (mr *membershipRouter) Leave(topic string) {
 	log.Debugf("LEAVE %s", topic)
-
-	if gs, ok := mr.rt.(*GossipSubRouter); ok {
-		gs.tracer.Leave(topic)
-	}
-	if js, ok := mr.rt.(*JmpSubRouter); ok {
-		js.tracer.Leave(topic)
-	}
+	mr.tracer.Leave(topic)
 }

@@ -220,10 +220,13 @@ func NewGossipSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, er
 		params:    params,
 	}
 
-	rt.membershipRouter.rt = rt
+	rt.membership = NewMembershipRouter(rt)
 
 	// hook the tag tracer
 	opts = append(opts, WithRawTracer(rt.tagTracer))
+
+	NewMembershipRouter(rt)
+
 	return NewPubSub(ctx, h, rt, opts...)
 }
 
@@ -462,7 +465,7 @@ type GossipSubRouter struct {
 	// clean up -- eg backoff clean up.
 	heartbeatTicks uint64
 
-	membershipRouter
+	membership *membershipRouter
 }
 
 type connectInfo struct {
@@ -518,7 +521,7 @@ func (gs *GossipSubRouter) Attach(p *PubSub) {
 }
 
 func (gs *GossipSubRouter) AddPeer(p peer.ID, proto protocol.ID) {
-	gs.membershipRouter.AddPeer(p, proto)
+	gs.membership.AddPeer(p, proto)
 
 	//log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
 	//gs.tracer.AddPeer(p, proto)
@@ -549,7 +552,7 @@ loop:
 }
 
 func (gs *GossipSubRouter) RemovePeer(p peer.ID) {
-	gs.membershipRouter.RemovePeer(p)
+	gs.membership.RemovePeer(p)
 
 	//log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
 	//gs.tracer.RemovePeer(p)
@@ -1048,7 +1051,7 @@ func (gs *GossipSubRouter) Join(topic string) {
 		return
 	}
 
-	gs.membershipRouter.Join(topic)
+	gs.membership.Join(topic)
 	//log.Debugf("JOIN %s", topic)
 	//gs.tracer.Join(topic)
 
@@ -1100,7 +1103,7 @@ func (gs *GossipSubRouter) Leave(topic string) {
 		return
 	}
 
-	gs.membershipRouter.Leave(topic)
+	gs.membership.Leave(topic)
 	//log.Debugf("LEAVE %s", topic)
 	//gs.tracer.Leave(topic)
 

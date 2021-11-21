@@ -163,6 +163,30 @@ func (t *pubsubTracer) DuplicateMessage(msg *Message) {
 	t.tracer.Trace(evt)
 }
 
+func (t *pubsubTracer) HitMessage(msg *Message) {
+	if t == nil {
+		return
+	}
+
+	if t.tracer == nil {
+		return
+	}
+
+	now := time.Now().UnixNano()
+	evt := &pb.TraceEvent{
+		Type:      pb.TraceEvent_HIT_MESSAGE.Enum(),
+		PeerID:    []byte(t.pid),
+		Timestamp: &now,
+		HitMessage: &pb.TraceEvent_HitMessage{
+			MessageID:    []byte(t.msgID(msg.Message)),
+			ReceivedFrom: []byte(msg.ReceivedFrom),
+			Topic:        msg.Topic,
+		},
+	}
+
+	t.tracer.Trace(evt)
+}
+
 func (t *pubsubTracer) DeliverMessage(msg *Message) {
 	if t == nil {
 		return
@@ -343,20 +367,22 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 	if rpc.GetJmpRPC() != nil {
 		var jmps []*pb.TraceEvent_JmpMeta
 		for _, j := range rpc.JmpRPC {
-			var jmpMsg []*pb.TraceEvent_JmpMeta_JmpMsgMeta
-			for _, m := range j.JmpMsgs {
-				jmpMsg = append(jmpMsg, &pb.TraceEvent_JmpMeta_JmpMsgMeta{
-					MsgNumber: m.MsgNumber,
+			if len(j.JmpMsgs) != 0 {
+				var jmpMsg []*pb.TraceEvent_JmpMeta_JmpMsgMeta
+				for _, m := range j.JmpMsgs {
+					jmpMsg = append(jmpMsg, &pb.TraceEvent_JmpMeta_JmpMsgMeta{
+						MsgNumber: m.MsgNumber,
+					})
+				}
+				jmps = append(jmps, &pb.TraceEvent_JmpMeta{
+					JmpMsgs: jmpMsg,
+					JmpMode: rpc.JmpMode,
+					MsgJamMaxPair: &pb.TraceEvent_JmpMeta_JamMaxPairMeta{
+						Jam: j.MsgJamMaxPair.Jam,
+						Max: j.MsgJamMaxPair.Max,
+					},
 				})
 			}
-			jmps = append(jmps, &pb.TraceEvent_JmpMeta{
-				JmpMsgs: jmpMsg,
-				JmpMode: rpc.JmpMode,
-				MsgJamMaxPair: &pb.TraceEvent_JmpMeta_JamMaxPairMeta{
-					Jam: j.MsgJamMaxPair.Jam,
-					Max: j.MsgJamMaxPair.Max,
-				},
-			})
 		}
 		rpcMeta.Jmp = jmps
 	}

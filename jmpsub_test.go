@@ -11,39 +11,12 @@ import (
 	"time"
 )
 
-type testInterface interface {
-	runfunc()
-}
+func TestChannel(t *testing.T) {
+	l := []int{}
 
-type testSt struct {
-	testShadow
-}
-
-func newTestSt() *testSt {
-	return &testSt{
-		testShadow{testInt: 5},
+	for i, v := range l {
+		fmt.Println(i, v)
 	}
-}
-
-func (ts *testSt) runfunc() {
-	fmt.Println("this is struct")
-
-	ts.testShadow.runfunc()
-}
-
-type testShadow struct {
-	testInt int
-}
-
-func (tsh *testShadow) runfunc() {
-	fmt.Println("this is shadow")
-	fmt.Println(tsh.testInt)
-}
-
-func TestShadow(t *testing.T) {
-	ts := newTestSt()
-
-	ts.runfunc()
 }
 
 func getJmpsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
@@ -73,8 +46,8 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 30
-	numMsgs := 50
+	numHosts := 50
+	numMsgs := 100
 
 	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getJmpsubs(ctx, hosts)
@@ -93,23 +66,26 @@ func TestJmpPublish(t *testing.T) {
 	// full connect
 	//connectAll(t, hosts)
 	//connectSome(t, hosts, numHosts)
-	//denseConnect(t, hosts)
-	sparseConnect(t, hosts)
+	denseConnect(t, hosts)
+	//sparseConnect(t, hosts)
 
-	for i, ps := range psubs {
-		fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
-	}
+	//for i, ps := range psubs {
+	//	fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+	//}
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
 	owners := make(map[int][]int)
 	for i := 0; i < numMsgs; i++ {
-		time.Sleep(time.Millisecond * 250)
-		fmt.Println("start", i)
+		time.Sleep(time.Millisecond * 200)
+		if i%10 == 0 {
+			fmt.Println("publishing", i)
+		}
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
-		owner := rand.Intn(5)
+		//owner := i % len(psubs)
+		owner := rand.Intn(10)
 		//owner := 0
 		owners[owner] = append(owners[owner], i)
 
@@ -118,14 +94,14 @@ func TestJmpPublish(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if i%10 == 0 {
-			for i, ps := range psubs {
-				fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
-			}
-		}
+		//if i%10 == 0 {
+		//	for i, ps := range psubs {
+		//		fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+		//	}
+		//}
 	}
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 2)
 
 	// 각 owner 가 생성한 msg 개수
 	// fmt.Println(owners)
@@ -153,5 +129,123 @@ func TestJmpPublish(t *testing.T) {
 		fmt.Println()
 		fmt.Println()
 	}
+
 	//assert.Equal(t, sum, numMsgs, "total msg count is different")
+
+	printStat(psubs)
+}
+
+func TestJmpPublishJoinLater(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	numHosts := 50
+	numMsgs := 100
+
+	hosts := getNetHosts(t, ctx, 30)
+	psubs := getJmpsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
+
+	var msgs []*Subscription
+	for _, tp := range topics {
+		subch, err := tp.Subscribe()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		msgs = append(msgs, subch)
+	}
+
+	// full connect
+	connectAll(t, hosts)
+
+	// wait for heartbeats to build mesh
+	time.Sleep(time.Second * 2)
+
+	owners := make(map[int][]int)
+	for i := 0; i < numMsgs/2; i++ {
+		time.Sleep(time.Millisecond * 200)
+		if i%10 == 0 {
+			fmt.Println("publishing", i)
+		}
+		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+
+		//owner := i % len(psubs)
+		owner := rand.Intn(len(topics))
+		//owner := 0
+		owners[owner] = append(owners[owner], i)
+
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(time.Second * 2)
+
+	hostsLater := getNetHosts(t, ctx, numHosts-30)
+	psubsLater := getJmpsubs(ctx, hostsLater)
+	topicsLater := getTopics(psubsLater, "foobar")
+	hosts = append(hosts, hostsLater...)
+	psubs = append(psubs, psubsLater...)
+	topics = append(topics, topicsLater...)
+
+	connectAll(t, hosts)
+
+	for _, tpl := range topicsLater {
+		subch, err := tpl.Subscribe()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		msgs = append(msgs, subch)
+	}
+
+	for i := 50; i < numMsgs; i++ {
+		time.Sleep(time.Millisecond * 200)
+		if i%10 == 0 {
+			fmt.Println("publishing with later peer", i)
+		}
+		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
+
+		//owner := i % len(psubs)
+		owner := rand.Intn(len(topics))
+		//owner := 0
+		owners[owner] = append(owners[owner], i)
+
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(time.Second * 2)
+
+	sum := 0
+	// 각 owner 가 생성한 msg 개수 확인
+	for ow, msgNum := range owners {
+		sum += len(msgNum)
+		// 각 pubsub peer 가 보유한 msg 개수 확인
+		fmt.Println(ow, "sent a total of", len(msgNum), "msgs: \t", msgNum)
+
+		for i, ps := range psubs {
+			assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
+			var recvMsgs []string
+			for _, msg := range ps.rt.(*JmpSubRouter).history[psubs[ow].signID] {
+				stringMsg := strings.Split(string(msg.Data), " ")
+				recvMsgs = append(recvMsgs, stringMsg[0])
+			}
+			fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
+			if len(recvMsgs) == 0 {
+				fmt.Println("\tgossipJMP", ps.rt.(*JmpSubRouter).gossipJMP[psubs[ow].signID])
+				fmt.Println("\thistoryJMP", ps.rt.(*JmpSubRouter).historyJMP[psubs[ow].signID])
+			}
+		}
+		fmt.Println()
+		fmt.Println()
+	}
+
+	//assert.Equal(t, sum, numMsgs, "total msg count is different")
+
+	printStat(psubs)
 }
