@@ -157,7 +157,7 @@ func printStat(psubs []*PubSub) {
 			if err != nil {
 				panic(err)
 			}
-			defer f.Close()
+			//defer f.Close()
 
 			dec := json.NewDecoder(f)
 			for {
@@ -168,6 +168,7 @@ func printStat(psubs []*PubSub) {
 				}
 				stats.evaluateStat(&evt)
 			}
+			f.Close()
 
 			fmt.Println("peer", i, "'s Stat")
 			fmt.Println("gmsg cnt", stats.gmsg)

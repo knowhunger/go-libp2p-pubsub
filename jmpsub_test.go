@@ -46,8 +46,8 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 50
-	numMsgs := 100
+	numHosts := 80
+	numMsgs := 200
 
 	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getJmpsubs(ctx, hosts)
@@ -64,9 +64,9 @@ func TestJmpPublish(t *testing.T) {
 	}
 
 	// full connect
-	//connectAll(t, hosts)
+	connectAll(t, hosts)
 	//connectSome(t, hosts, numHosts)
-	denseConnect(t, hosts)
+	//denseConnect(t, hosts)
 	//sparseConnect(t, hosts)
 
 	//for i, ps := range psubs {
@@ -85,7 +85,7 @@ func TestJmpPublish(t *testing.T) {
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		//owner := i % len(psubs)
-		owner := rand.Intn(10)
+		owner := rand.Intn(len(psubs))
 		//owner := 0
 		owners[owner] = append(owners[owner], i)
 

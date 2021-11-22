@@ -55,11 +55,11 @@ func TestSparseGossipsub(t *testing.T) {
 
 	//playback := 0.01
 	var baseTime int64
-	numOfHosts := 30 // 256 개 포트 정도는 되는지
-	//numOfMsgToPublish := 1000
+	numHosts := 50 // 256 개 포트 정도는 되는지
+	numMsgs := 100
 	baseTime = time.Now().UnixNano()
 
-	hosts := getNetHosts(t, ctx, numOfHosts)
+	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getGossipsubs(ctx, hosts)
 	topics := getTopics(psubs, "foobar")
 
@@ -79,7 +79,7 @@ func TestSparseGossipsub(t *testing.T) {
 	//fullConnect(t, hosts)
 
 	// build centralized connect (like star shape)
-	//for i := 1; i < numOfHosts; i++ {
+	//for i := 1; i < numHosts; i++ {
 	//	connect(t, hosts[0], hosts[i])
 	//}
 
@@ -92,7 +92,7 @@ func TestSparseGossipsub(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	//publish based random owner
-	for i := 0; i < 50; i++ {
+	for i := 0; i < numMsgs; i++ {
 		fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
@@ -161,7 +161,6 @@ func TestDenseGossipsub(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	hosts := getNetHosts(t, ctx, numHosts)
-
 	psubs := getGossipsubs(ctx, hosts)
 	topics := getTopics(psubs, "foobar")
 
@@ -175,8 +174,9 @@ func TestDenseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	//connectAll(t, hosts)
-	denseConnect(t, hosts)
+	connectAll(t, hosts)
+	//denseConnect(t, hosts)
+	//sparseConnect(t, hosts)
 	//connect(t, hosts[0], hosts[1])
 	//connect(t, hosts[1], hosts[2])
 	////connect(t, hosts[2], hosts[3])
@@ -189,8 +189,8 @@ func TestDenseGossipsub(t *testing.T) {
 		//fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
-		//owner := rand.Intn(len(psubs))
-		owner := rand.Intn(10)
+		owner := rand.Intn(len(psubs))
+		//owner := rand.Intn(10)
 
 		err := topics[owner].Publish(ctx, msg)
 		if err != nil {

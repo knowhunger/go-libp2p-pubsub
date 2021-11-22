@@ -521,11 +521,11 @@ func (gs *GossipSubRouter) Attach(p *PubSub) {
 }
 
 func (gs *GossipSubRouter) AddPeer(p peer.ID, proto protocol.ID) {
-	gs.membership.AddPeer(p, proto)
+	//gs.membership.AddPeer(p, proto)
 
-	//log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
-	//gs.tracer.AddPeer(p, proto)
-	//gs.peers[p] = proto
+	log.Debugf("PEERUP: Add new peer %s using %s", p, proto)
+	gs.tracer.AddPeer(p, proto)
+	gs.peers[p] = proto
 
 	// track the connection direction
 	outbound := false
@@ -552,11 +552,11 @@ loop:
 }
 
 func (gs *GossipSubRouter) RemovePeer(p peer.ID) {
-	gs.membership.RemovePeer(p)
+	//gs.membership.RemovePeer(p)
 
-	//log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
-	//gs.tracer.RemovePeer(p)
-	//delete(gs.peers, p)
+	log.Debugf("PEERDOWN: Remove disconnected peer %s", p)
+	gs.tracer.RemovePeer(p)
+	delete(gs.peers, p)
 	for _, peers := range gs.mesh {
 		delete(peers, p)
 	}
@@ -1051,9 +1051,9 @@ func (gs *GossipSubRouter) Join(topic string) {
 		return
 	}
 
-	gs.membership.Join(topic)
-	//log.Debugf("JOIN %s", topic)
-	//gs.tracer.Join(topic)
+	//gs.membership.Join(topic)
+	log.Debugf("JOIN %s", topic)
+	gs.tracer.Join(topic)
 
 	gmap, ok = gs.fanout[topic]
 	if ok {
@@ -1103,9 +1103,9 @@ func (gs *GossipSubRouter) Leave(topic string) {
 		return
 	}
 
-	gs.membership.Leave(topic)
-	//log.Debugf("LEAVE %s", topic)
-	//gs.tracer.Leave(topic)
+	//gs.membership.Leave(topic)
+	log.Debugf("LEAVE %s", topic)
+	gs.tracer.Leave(topic)
 
 	delete(gs.mesh, topic)
 
