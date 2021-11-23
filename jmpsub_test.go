@@ -11,14 +11,6 @@ import (
 	"time"
 )
 
-func TestChannel(t *testing.T) {
-	l := []int{}
-
-	for i, v := range l {
-		fmt.Println(i, v)
-	}
-}
-
 func getJmpsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 	ps, err := NewJmpSub(ctx, h, opts...)
 	if err != nil {
@@ -46,8 +38,8 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 80
-	numMsgs := 200
+	numHosts := 50
+	numMsgs := 100
 
 	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getJmpsubs(ctx, hosts)
@@ -64,9 +56,9 @@ func TestJmpPublish(t *testing.T) {
 	}
 
 	// full connect
-	connectAll(t, hosts)
+	//connectAll(t, hosts)
 	//connectSome(t, hosts, numHosts)
-	//denseConnect(t, hosts)
+	denseConnect(t, hosts)
 	//sparseConnect(t, hosts)
 
 	//for i, ps := range psubs {

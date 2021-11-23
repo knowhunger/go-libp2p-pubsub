@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	JmpMinFan                = 6
-	JmpMaxFan                = 6
+	JmpMinFan                = 3 // range 1, 2, 3
+	JmpMaxFan                = 6 // range 3, 6, 9, 12
 	JmpMaxMsgBuf             = 30
 	JmpMaxHistory            = 120 // gossipsub = 5000
 	JMPMaxGenerateMsg        = 5000
@@ -111,11 +111,14 @@ type JmpSubRouter struct {
 	history map[peer.ID][]*JmpMessage
 	msgBuf  map[peer.ID]*JmpMsgBuf
 
-	// Messages I made
-	myMsg []*JmpMessage
-
 	// If you have accepted the message, then true
 	isMsgUpdated chan bool
+
+	// for select send peers
+	fanout int
+
+	// Messages I made
+	myMsg []*JmpMessage
 
 	mcache *MessageCache
 
@@ -138,6 +141,9 @@ func (js *JmpSubRouter) Attach(p *PubSub) {
 
 	// start using the same msg ID function as PubSub for caching messages.
 	js.mcache.SetMsgIdFn(p.msgID)
+
+	// set fanout
+	js.fanout = js.params.MaxFan
 
 	// start the cycle
 	go js.nextCycle()
@@ -194,6 +200,7 @@ func (js *JmpSubRouter) AcceptFrom(p peer.ID) AcceptStatus {
 
 func (js *JmpSubRouter) HandleRPC(rpc *RPC) {
 	sender := peer.ID(rpc.GetSender())
+	senderFanout := int(rpc.GetFanout())
 	jmpRPCs := rpc.GetJmpRPC()
 	if jmpRPCs == nil {
 		return
@@ -206,11 +213,13 @@ func (js *JmpSubRouter) HandleRPC(rpc *RPC) {
 	if *rpc.JmpMode == PUSH {
 		// 4a) loading pull gossip
 		pullBuf := js.loadPullGossip(forDuplicatedCheck)
-		out := js.rpcWithMsgBufs(pullBuf, PULL)
+		out := js.rpcWithMsgBuf(pullBuf, PULL)
 
 		if out != nil {
 			js.sendRPC(sender, out)
 		}
+
+		js.setFanoutToPushed(senderFanout)
 	}
 }
 
@@ -288,6 +297,15 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 	return forDuplicatedCheck
 }
 
+func (js *JmpSubRouter) setFanoutToPushed(senderFanout int) {
+	if js.fanout < senderFanout/2 {
+		js.fanout = senderFanout / 2
+	}
+	if js.fanout < js.params.MinFan {
+		js.fanout = js.params.MinFan
+	}
+}
+
 // Publish 여기서는 처음 msg 가 생성 될 때 호출 되는 함수
 func (js *JmpSubRouter) Publish(msg *Message) {
 	// 본인이 생성한 msg 인 경우에만 numbering 동작
@@ -318,6 +336,7 @@ func (js *JmpSubRouter) nextCycle() {
 	for {
 		select {
 		case <-js.isMsgUpdated:
+			js.fanout = js.params.MaxFan
 			select {
 			case js.p.eval <- js.gossip:
 			case <-js.p.ctx.Done():
@@ -337,26 +356,30 @@ func (js *JmpSubRouter) nextCycle() {
 
 func (js *JmpSubRouter) gossip() {
 	// 1a) loading push gossip
-	pushBuf := js.loadPushGossip()
+	pushBuf, msgsize := js.loadPushGossip()
 
 	for topic, _ := range js.p.topics {
 		// subscribe 하고 있는 topic 을 대상으로 msg 를 전달
 		// topic 안의 peer 중 보낼 peer 를 fanout 개수만큼 선택
 		toSend := js.selectPeerWithFanout(topic)
 
+		js.ensureMinimalFanout(msgsize)
+
 		// 해당 topic 에 참여하고 있는 peer 가 보낸 msg 만 out 에 담음
-		out := js.rpcWithMsgBufs(pushBuf, PUSH)
+		out := js.rpcWithMsgBuf(pushBuf, PUSH)
 
 		if out != nil {
 			for pid := range toSend {
 				js.sendRPC(pid, out)
 			}
+			js.splitFanoutInHalf()
 		}
 	}
 }
 
-func (js *JmpSubRouter) loadPushGossip() map[peer.ID]*JmpMsgBuf {
+func (js *JmpSubRouter) loadPushGossip() (map[peer.ID]*JmpMsgBuf, int) {
 	// 각 msg src 마다 gossip js 를 기준으로 history 에 있는 msg 들을 js.msgBuf[src] 에 msg 를 담음
+	var msgsize int
 	pushBuf := make(map[peer.ID]*JmpMsgBuf)
 
 	for src, gjmp := range js.gossipJMP {
@@ -379,13 +402,30 @@ func (js *JmpSubRouter) loadPushGossip() map[peer.ID]*JmpMsgBuf {
 		tempJmp.jam = js.historyJMP[src].jam
 		tempJmp.max = js.gossipJMP[src].max
 
+		msgsize += len(msgBuf)
 		pushBuf[src] = &JmpMsgBuf{msgJmp: tempJmp, msgBuf: msgBuf, source: src}
 	}
 
-	return pushBuf
+	return pushBuf, msgsize
 }
 
-func (js *JmpSubRouter) rpcWithMsgBufs(msgBufs map[peer.ID]*JmpMsgBuf, mode uint64) *RPC {
+func (js *JmpSubRouter) ensureMinimalFanout(msgSize int) {
+	if js.fanout < (2*msgSize)/js.params.MaxMsgBuf {
+		js.fanout = int(math.Ceil(float64(2*msgSize) / float64(js.params.MaxFan)))
+	}
+	if js.fanout > js.params.MaxFan {
+		js.fanout = js.params.MaxFan
+	}
+}
+
+func (js *JmpSubRouter) splitFanoutInHalf() {
+	js.fanout = js.fanout / 2
+	if js.fanout < js.params.MinFan {
+		js.fanout = js.params.MinFan
+	}
+}
+
+func (js *JmpSubRouter) rpcWithMsgBuf(msgBufs map[peer.ID]*JmpMsgBuf, mode uint64) *RPC {
 	if len(msgBufs) == 0 {
 		return nil
 	}
@@ -426,7 +466,8 @@ func (js *JmpSubRouter) rpcWithMsgBufs(msgBufs map[peer.ID]*JmpMsgBuf, mode uint
 		}
 	}
 
-	return &RPC{RPC: pb.RPC{JmpRPC: msgJmp, JmpMode: &mode, Sender: []byte(js.p.signID)}}
+	msgFanout := int64(js.fanout)
+	return &RPC{RPC: pb.RPC{JmpRPC: msgJmp, JmpMode: &mode, Sender: []byte(js.p.signID), Fanout: &msgFanout}}
 }
 
 func (js *JmpSubRouter) Join(topic string) {
@@ -578,7 +619,6 @@ func (js *JmpSubRouter) doDropRPC(rpc *RPC, pid peer.ID, reason string) {
 }
 
 func (js *JmpSubRouter) selectPeerWithFanout(topic string) map[peer.ID]struct{} {
-	fanout := js.params.MaxFan
 	toSend := make(map[peer.ID]struct{})
 
 	tmap, ok := js.p.topics[topic]
@@ -586,8 +626,8 @@ func (js *JmpSubRouter) selectPeerWithFanout(topic string) map[peer.ID]struct{} 
 	if !ok {
 		return nil
 	} else {
-		if len(tmap) > fanout {
-			randomPeers := js.getRandomPeersWithFanout(tmap, fanout)
+		if len(tmap) > js.fanout {
+			randomPeers := js.getRandomPeersWithFanout(tmap)
 
 			if len(randomPeers) > 0 {
 				tmap = peerListToMap(randomPeers)
@@ -602,13 +642,13 @@ func (js *JmpSubRouter) selectPeerWithFanout(topic string) map[peer.ID]struct{} 
 	return toSend
 }
 
-func (js *JmpSubRouter) getRandomPeersWithFanout(pmap map[peer.ID]struct{}, fanout int) []peer.ID {
+func (js *JmpSubRouter) getRandomPeersWithFanout(pmap map[peer.ID]struct{}) []peer.ID {
 	peers := peerMapToList(pmap)
 
 	shufflePeers(peers)
 
-	if fanout > 0 && len(peers) > fanout {
-		peers = peers[:fanout]
+	if js.fanout > 0 && len(peers) > js.fanout {
+		peers = peers[:js.fanout]
 	}
 
 	return peers

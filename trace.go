@@ -375,6 +375,7 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 					})
 				}
 				jmps = append(jmps, &pb.TraceEvent_JmpMeta{
+					Fanout:  rpc.Fanout,
 					JmpMsgs: jmpMsg,
 					JmpMode: rpc.JmpMode,
 					MsgJamMaxPair: &pb.TraceEvent_JmpMeta_JamMaxPairMeta{
