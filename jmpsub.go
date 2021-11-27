@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"math"
+	"math/rand"
 	"sort"
 	"time"
 )
@@ -102,6 +103,7 @@ type JmpSubRouter struct {
 	p      *PubSub
 	peers  map[peer.ID]protocol.ID
 	protos []protocol.ID
+	myID   peer.ID
 
 	// Jam Max Pair
 	historyJMP map[peer.ID]*JamMaxPair
@@ -138,6 +140,7 @@ func (js *JmpSubRouter) Attach(p *PubSub) {
 	// init func
 	js.p = p
 	js.tracer = p.tracer
+	js.myID = p.host.ID()
 
 	// start using the same msg ID function as PubSub for caching messages.
 	js.mcache.SetMsgIdFn(p.msgID)
@@ -145,15 +148,21 @@ func (js *JmpSubRouter) Attach(p *PubSub) {
 	// set fanout
 	js.fanout = js.params.MaxFan
 
+	// If minFanout is greater than maxFanout, make minFanout half of maxFanout.
+	//
+	if js.params.MinFan > js.params.MaxFan {
+		js.params.MinFan = js.params.MaxFan
+	}
+
 	// start the cycle
 	go js.nextCycle()
 
 	// set JMP
-	if js.gossipJMP[js.p.signID] == nil {
-		js.gossipJMP[js.p.signID] = &JamMaxPair{jam: 0, max: 0}
+	if js.gossipJMP[js.myID] == nil {
+		js.gossipJMP[js.myID] = &JamMaxPair{jam: 0, max: 0}
 	}
-	if js.historyJMP[js.p.signID] == nil {
-		js.historyJMP[js.p.signID] = &JamMaxPair{jam: 0, max: 0}
+	if js.historyJMP[js.myID] == nil {
+		js.historyJMP[js.myID] = &JamMaxPair{jam: 0, max: 0}
 	}
 }
 
@@ -309,7 +318,7 @@ func (js *JmpSubRouter) setFanoutToPushed(senderFanout int) {
 // Publish 여기서는 처음 msg 가 생성 될 때 호출 되는 함수
 func (js *JmpSubRouter) Publish(msg *Message) {
 	// 본인이 생성한 msg 인 경우에만 numbering 동작
-	if msg.GetFrom() == js.p.host.ID() {
+	if msg.GetFrom() == js.myID {
 		// numbering 과 history 관리
 		// publish 할 때는 본인이 생성한 msg 가 아닌 경우 history 에 담지 않음
 		// 다른 사람이 보낸 msg 를 history 에 담는 것은 handleRPC 에서
@@ -317,8 +326,7 @@ func (js *JmpSubRouter) Publish(msg *Message) {
 		js.putHistory(jmpmsg)
 
 		// set gossipJMP
-		myID := js.p.host.ID()
-		js.gossipJMP[myID].max = js.historyJMP[myID].max
+		js.gossipJMP[js.myID].max = js.historyJMP[js.myID].max
 	}
 }
 
@@ -357,13 +365,12 @@ func (js *JmpSubRouter) nextCycle() {
 func (js *JmpSubRouter) gossip() {
 	// 1a) loading push gossip
 	pushBuf, msgsize := js.loadPushGossip()
+	js.ensureMinimalFanout(msgsize)
 
 	for topic, _ := range js.p.topics {
 		// subscribe 하고 있는 topic 을 대상으로 msg 를 전달
 		// topic 안의 peer 중 보낼 peer 를 fanout 개수만큼 선택
 		toSend := js.selectPeerWithFanout(topic)
-
-		js.ensureMinimalFanout(msgsize)
 
 		// 해당 topic 에 참여하고 있는 peer 가 보낸 msg 만 out 에 담음
 		out := js.rpcWithMsgBuf(pushBuf, PUSH)
@@ -487,8 +494,8 @@ func (js *JmpSubRouter) Leave(topic string) {
 func (js *JmpSubRouter) numbering(msg *Message) *JmpMessage {
 	jmpmsg := &JmpMessage{
 		Message: msg.Message,
-		source:  js.p.signID,
-		sender:  js.p.signID,
+		source:  js.myID,
+		sender:  js.myID,
 	}
 
 	if len(js.myMsg) > js.params.MaxGenerateMsg {
@@ -534,12 +541,17 @@ loop:
 			}
 		}
 
-		if src != js.p.host.ID() {
+		// If the msg is not generated msg
+		if src != js.myID {
+			hop := msg.GetHop()
+			hop++
+			msg.Hop = &hop
 			js.tracer.HitMessage(&Message{Message: msg.Message, ReceivedFrom: src})
 		}
 
 		js.history[src] = append(js.history[src], msg)
 
+		//shuffleHistory(js.history[src])
 		// sort history -> 이걸 매번 해주는게 나을까...?
 		sort.Slice(js.history[src], func(i, j int) bool {
 			return js.history[src][i].msgNumber < js.history[src][j].msgNumber
@@ -652,4 +664,11 @@ func (js *JmpSubRouter) getRandomPeersWithFanout(pmap map[peer.ID]struct{}) []pe
 	}
 
 	return peers
+}
+
+func shuffleHistory(msgs []*JmpMessage) {
+	for i := range msgs {
+		j := rand.Intn(i + 1)
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
 }
