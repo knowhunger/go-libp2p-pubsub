@@ -181,6 +181,8 @@ func (t *pubsubTracer) HitMessage(msg *Message) {
 			MessageID:    []byte(t.msgID(msg.Message)),
 			ReceivedFrom: []byte(msg.ReceivedFrom),
 			Topic:        msg.Topic,
+			Hop:          msg.Hop,
+			CreateTime:   msg.Createtime,
 		},
 	}
 
@@ -390,11 +392,12 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 
 	var msgs []*pb.TraceEvent_MessageMeta
 	for _, m := range rpc.Publish {
+		hops := m.GetHop() + int64(1)
 		msgs = append(msgs, &pb.TraceEvent_MessageMeta{
 			MessageID:  []byte(t.msgID(m)),
 			Topic:      m.Topic,
-			Hop:        m.Hop,
-			Createtime: m.Createtime,
+			Hop:        &hops,
+			CreateTime: m.Createtime,
 		})
 	}
 	rpcMeta.Messages = msgs

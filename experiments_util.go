@@ -25,6 +25,7 @@ type experimentsStats struct {
 	gmsg, smsg, rmsg int
 	hmsg             map[string]*hmsgInfo
 	dmsg, hitmsg     int
+	fanout           []int
 }
 
 type hmsgInfo struct {
@@ -50,14 +51,14 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				// check hmsg
 				if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
 					networkDelay := 0
-					for i := 0; i < int(*evt.RecvRPC.Meta.Messages[0].Hop+1); i++ {
+					for i := 0; i < int(*evt.RecvRPC.Meta.Messages[0].Hop); i++ {
 						networkDelay += rand.Intn(max-min+1) + min
 					}
 					es.hmsg[string(msg.MessageID)] = &hmsgInfo{
 						timestamp: *evt.Timestamp,
-						delay: int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].Createtime)/1000000) +
+						delay: int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].CreateTime)/1000000) +
 							networkDelay,
-						hop: int(*evt.RecvRPC.Meta.Messages[0].Hop + 1),
+						hop: int(*evt.RecvRPC.Meta.Messages[0].Hop),
 					}
 				}
 			}
@@ -78,12 +79,26 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 		if len(evt.SendRPC.Meta.Jmp) > 0 {
 			for _, jmp := range evt.SendRPC.Meta.Jmp {
 				es.smsg += len(jmp.JmpMsgs)
+				es.fanout = append(es.fanout, int(jmp.GetFanout()))
 			}
 		}
 	case pb.TraceEvent_DUPLICATE_MESSAGE:
 		es.dmsg++
 	case pb.TraceEvent_HIT_MESSAGE:
 		es.hitmsg++
+		msg := evt.HitMessage
+		if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
+			networkDelay := 0
+			for i := 0; i < int(evt.HitMessage.GetHop()); i++ {
+				networkDelay += rand.Intn(max-min+1) + min
+			}
+			es.hmsg[string(msg.MessageID)] = &hmsgInfo{
+				timestamp: evt.GetTimestamp(),
+				delay: int((evt.GetTimestamp()-evt.HitMessage.GetCreateTime())/1000000) +
+					networkDelay,
+				hop: int(evt.HitMessage.GetHop()),
+			}
+		}
 	}
 }
 
@@ -133,12 +148,56 @@ func opsPublish(ctx context.Context, tp *Topic, msgs []*Subscription, fileInfo f
 	time.Sleep(5 * time.Second)
 }
 
+type IncrementalStats struct {
+	min, max int
+	avg      float64
+	slice    []int
+	units    string
+}
+
+func (is IncrementalStats) String() string {
+	is.CalculateStats()
+	return fmt.Sprintf("Min: %6d %s,\t\t Max: %6d %s,\t\t Avg: %6.4f %s",
+		is.min, is.units,
+		is.max, is.units,
+		is.avg, is.units)
+}
+
+func (is *IncrementalStats) Add(nums ...int) {
+	if nums == nil {
+		return
+	}
+	is.slice = append(is.slice, nums...)
+}
+
+func (is *IncrementalStats) AddWithIncrementalStats(iss IncrementalStats) {
+	is.slice = append(is.slice, iss.slice...)
+	is.units = iss.units
+}
+
+func (is *IncrementalStats) CalculateStats() {
+	if is.slice == nil {
+		return
+	}
+
+	sort.Slice(is.slice, func(i, j int) bool {
+		return is.slice[i] < is.slice[j]
+	})
+
+	for _, v := range is.slice {
+		is.avg += float64(v)
+	}
+	is.avg = is.avg / float64(len(is.slice))
+	is.min = is.slice[0]
+	is.max = is.slice[len(is.slice)-1]
+}
+
 func printStat(psubs []*PubSub) {
 	fmt.Println("printStat starts")
 	type statGroup struct {
 		gmsg, smsg, rmsg, hmsg int
-		delay, hop             []int
 		dmsg, hitmsg           int
+		delay, hop, fanout     IncrementalStats
 	}
 
 	var wg sync.WaitGroup
@@ -147,11 +206,12 @@ func printStat(psubs []*PubSub) {
 	for i := 0; i < len(psubs); i++ {
 		wg.Add(1)
 		go func(i int, totalStatChan chan statGroup) {
-			//var gmsg, smsg, rmsg, hmsg int
-			//var dmsg int
-			var delay, hop []int
+			var delay, hop, fanout IncrementalStats
 			var evt pb.TraceEvent
 			stats := &experimentsStats{hmsg: make(map[string]*hmsgInfo)}
+			delay.units = "ms"
+			hop.units = "hops"
+			fanout.units = "nodes"
 
 			f, err := os.Open(fmt.Sprintf("./trace_out/tracer_%d.json", i))
 			if err != nil {
@@ -168,26 +228,32 @@ func printStat(psubs []*PubSub) {
 				}
 				stats.evaluateStat(&evt)
 			}
-			f.Close()
-
-			fmt.Println("peer", i, "'s Stat")
-			fmt.Println("gmsg cnt", stats.gmsg)
-			fmt.Println("smsg cnt", stats.smsg)
-			fmt.Println("rmsg cnt", stats.rmsg)
-			fmt.Println("hmsg cnt", len(stats.hmsg))
-			fmt.Println("dmsg cnt", stats.dmsg)
-			fmt.Println("hitmsg cnt", stats.hitmsg)
-
-			for _, hm := range stats.hmsg {
-				delay = append(delay, hm.delay)
-				hop = append(hop, hm.hop)
+			err = f.Close()
+			if err != nil {
+				return
 			}
 
+			for _, hm := range stats.hmsg {
+				delay.Add(hm.delay)
+				hop.Add(hm.hop)
+			}
+			fanout.Add(stats.fanout...)
+
+			fmt.Println("peer", i, "'s Stat")
+			fmt.Println("gmsg cnt:", stats.gmsg)
+			fmt.Println("smsg cnt:", stats.smsg)
+			fmt.Println("rmsg cnt:", stats.rmsg)
+			fmt.Println("hmsg cnt:", len(stats.hmsg))
+			fmt.Println("dmsg cnt:", stats.dmsg)
+			fmt.Println("hitmsg cnt:", stats.hitmsg)
+			fmt.Println("delay:\n\t", delay)
+			fmt.Println("hop:\n\t", hop)
+			fmt.Println("fanout:\n\t", fanout)
 			fmt.Println()
 
 			totalStatChan <- statGroup{
 				gmsg: stats.gmsg, smsg: stats.smsg, rmsg: stats.rmsg, hmsg: len(stats.hmsg),
-				delay: delay, hop: hop,
+				delay: delay, hop: hop, fanout: fanout,
 				dmsg: stats.dmsg, hitmsg: stats.hitmsg}
 			wg.Done()
 		}(i, totalStatChan)
@@ -196,20 +262,16 @@ func printStat(psubs []*PubSub) {
 	wg.Wait()
 	close(totalStatChan)
 
-	//cnt := 0
 	for c := range totalStatChan {
 		totalStat.gmsg += c.gmsg
 		totalStat.smsg += c.smsg
 		totalStat.rmsg += c.rmsg
 		totalStat.hmsg += c.hmsg
-		totalStat.delay = append(totalStat.delay, c.delay...)
-		totalStat.hop = append(totalStat.hop, c.hop...)
 		totalStat.dmsg += c.dmsg
 		totalStat.hitmsg += c.hitmsg
-		//cnt++
-		//if cnt == len(psubs) {
-		//	close(totalStatChan)
-		//}
+		totalStat.delay.AddWithIncrementalStats(c.delay)
+		totalStat.hop.AddWithIncrementalStats(c.hop)
+		totalStat.fanout.AddWithIncrementalStats(c.fanout)
 	}
 
 	fmt.Println("total gmsg: ", totalStat.gmsg)
@@ -230,15 +292,19 @@ func printStat(psubs []*PubSub) {
 
 	//var redundancy float64
 	redundancy := float64(totalStat.smsg) / (float64(totalStat.gmsg) * float64(len(psubs)-1))
-	fmt.Println("final Redundancy: ", redundancy)
+	fmt.Printf("final Redundancy: %6.4f\n", redundancy)
 
 	//calculateCoverage(totalGmsg, hmsgPerUnitTime, endTime, len(psubs))
 
-	delayMap := dupCounter(totalStat.delay)
+	fmt.Println("total Delay:\n\t", totalStat.delay)
+	fmt.Println("total Hop:\n\t", totalStat.hop)
+	fmt.Println("total Fanout:\n\t", totalStat.fanout)
+
+	delayMap := dupCounter(totalStat.delay.slice)
 	//fmt.Println(delayMap)
 	drawCoveragePlot(delayMap, totalStat.gmsg*(len(psubs)-1), "coverage_per_delay")
 
-	hopMap := dupCounter(totalStat.hop)
+	hopMap := dupCounter(totalStat.hop.slice)
 	//fmt.Println(hopMap)
 	drawCoveragePlot(hopMap, totalStat.gmsg*(len(psubs)-1), "coverage_per_hop")
 }

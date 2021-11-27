@@ -106,9 +106,12 @@ message TraceEvent {
   }
 
   message HitMessage {
-    optional bytes messageID = 1;
-    optional bytes receivedFrom = 2;
+    optional bytes receivedFrom = 1;
+    optional bytes messageID = 2;
+
     optional string topic = 3;
+    optional int64 hop = 4;
+    optional int64 createTime = 5;
   }
 
   message RPCMeta {
@@ -142,7 +145,7 @@ message TraceEvent {
     optional string topic = 2;
 
     optional int64 hop = 3;
-    optional int64 createtime = 4;
+    optional int64 createTime = 4;
   }
 
   message SubMeta {

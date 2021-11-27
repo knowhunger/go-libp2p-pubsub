@@ -174,7 +174,8 @@ func TestDenseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	connectAll(t, hosts)
+	//connectAll(t, hosts)
+	connectSome(t, hosts, 20)
 	//denseConnect(t, hosts)
 	//sparseConnect(t, hosts)
 	//connect(t, hosts[0], hosts[1])

@@ -971,6 +971,12 @@ func (gs *GossipSubRouter) connector() {
 }
 
 func (gs *GossipSubRouter) Publish(msg *Message) {
+	if gs.p.host.ID() != msg.GetFrom() && gs.p.host.ID() != msg.ReceivedFrom {
+		hop := msg.GetHop()
+		hop++
+		msg.Hop = &hop
+	}
+
 	gs.mcache.Put(msg.Message)
 
 	from := msg.ReceivedFrom
@@ -1355,6 +1361,7 @@ func (gs *GossipSubRouter) heartbeat() {
 	// clean up expired backoffs
 	gs.clearBackoff()
 
+	// 한 peer에게 너무 많은 IHAVE msg를 받지 않기 위함
 	// clean up iasked counters
 	gs.clearIHaveCounters()
 
