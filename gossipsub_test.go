@@ -188,6 +188,7 @@ func TestDenseGossipsub(t *testing.T) {
 
 	for i := 0; i < numMsgs; i++ {
 		//fmt.Println("msg publish")
+		//time.Sleep(time.Millisecond * 200)
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := rand.Intn(len(psubs))

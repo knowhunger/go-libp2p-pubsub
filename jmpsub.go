@@ -208,20 +208,21 @@ func (js *JmpSubRouter) AcceptFrom(p peer.ID) AcceptStatus {
 }
 
 func (js *JmpSubRouter) HandleRPC(rpc *RPC) {
-	sender := peer.ID(rpc.GetSender())
-	senderFanout := int(rpc.GetFanout())
 	jmpRPCs := rpc.GetJmpRPC()
 	if jmpRPCs == nil {
 		return
 	}
 
+	sender := peer.ID(rpc.GetSender())
+	senderFanout := int(rpc.GetFanout())
+
 	// do receive func
 	// msgs 중에서 중복 제외하고 내 msg 버퍼에 추가
-	recvJmpMessage := js.HandelJmpRPC(sender, jmpRPCs)
+	recvJmpMessages := js.HandelJmpRPC(sender, jmpRPCs)
 
 	if *rpc.JmpMode == PUSH {
 		// 4a) loading pull gossip
-		pullBuf := js.loadPullGossip(recvJmpMessage)
+		pullBuf := js.loadPullGossip(recvJmpMessages)
 		out := js.rpcWithMsgBuf(pullBuf, PULL)
 
 		if out != nil {
@@ -239,8 +240,12 @@ func (js *JmpSubRouter) loadPullGossip(recv map[peer.ID][]*JmpMessage) map[peer.
 		tempJmp := gjmp
 
 		history := js.history[src]
-		if history == nil {
-			pullBuf[src] = &JmpMsgBuf{msgJmp: &JamMaxPair{jam: 0, max: tempJmp.max}, msgBuf: nil, source: src}
+		if len(history) == 0 {
+			pullBuf[src] = &JmpMsgBuf{
+				msgJmp: &JamMaxPair{jam: 0, max: tempJmp.max},
+				msgBuf: nil,
+				source: src,
+			}
 			continue
 		}
 
@@ -273,7 +278,7 @@ func (js *JmpSubRouter) loadPullGossip(recv map[peer.ID][]*JmpMessage) map[peer.
 }
 
 func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) map[peer.ID][]*JmpMessage {
-	recvJmpMessage := make(map[peer.ID][]*JmpMessage)
+	recvJmpMessages := make(map[peer.ID][]*JmpMessage)
 
 	for _, jmpRPC := range jmpRPCs {
 		recvJmpMsgs := jmpRPC.JmpMsgs
@@ -292,7 +297,7 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 
 		// 3a)
 		js.putHistory(jmpMsgs...)
-		recvJmpMessage[recvSrc] = jmpMsgs
+		recvJmpMessages[recvSrc] = jmpMsgs
 
 		// update gossipJmp
 		if js.gossipJMP[recvSrc] == nil {
@@ -303,7 +308,7 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 		js.gossipJMP[recvSrc].max = int(math.Max(float64(js.gossipJMP[recvSrc].max), float64(int(*recvJMP.Max))))
 	}
 
-	return recvJmpMessage
+	return recvJmpMessages
 }
 
 func (js *JmpSubRouter) setFanoutToPushed(senderFanout int) {
@@ -376,6 +381,7 @@ func (js *JmpSubRouter) gossip() {
 		out := js.rpcWithMsgBuf(pushBuf, PUSH)
 
 		if out != nil {
+			//fmt.Println(len(toSend))
 			for pid := range toSend {
 				js.sendRPC(pid, out)
 			}
@@ -393,7 +399,7 @@ func (js *JmpSubRouter) loadPushGossip() (map[peer.ID]*JmpMsgBuf, int) {
 		tempJmp := gjmp
 
 		history := js.history[src]
-		if history == nil {
+		if len(history) == 0 {
 			pushBuf[src] = &JmpMsgBuf{
 				msgJmp: &JamMaxPair{jam: 0, max: tempJmp.max},
 				msgBuf: nil,
@@ -539,6 +545,11 @@ loop:
 	for _, msg := range jmpMsgs {
 		src := msg.source
 
+		//if js.checkDuplicated(msg) {
+		//	js.tracer.DuplicateMessage(&Message{Message: msg.Message, ReceivedFrom: src})
+		//	continue loop
+		//}
+
 		if his, ok := js.history[src]; ok {
 			// history buf 사이즈의 최대에 도달 했을 때...
 			if len(his) > js.params.MaxHistoryBuf {
@@ -571,8 +582,7 @@ loop:
 			return js.history[src][i].msgNumber < js.history[src][j].msgNumber
 		})
 
-		js.updateHistoryJMP(src)
-		isUpdate = true
+		isUpdate = js.updateHistoryJMP(src)
 	}
 
 	if isUpdate {
@@ -580,17 +590,17 @@ loop:
 	}
 }
 
-func (js *JmpSubRouter) updateHistoryJMP(src peer.ID) {
+func (js *JmpSubRouter) updateHistoryJMP(src peer.ID) bool {
 	// update historyJmp
 	// 앞의 부분을 못 받은 경우에도 받을 수 있도록 0 으로 setting
-	js.historyJMP[src] = &JamMaxPair{jam: 0, max: 0}
+	tJMP := &JamMaxPair{jam: 0, max: 0}
 	history := js.history[src]
 
 	if len(history) > 1 {
 		for i := 0; i < len(history)-1; i++ {
 			// msg number 가 연속일 때, 마지막으로 연속된 number 를 jam 으로 설정
 			if history[i+1].msgNumber == history[i].msgNumber+1 {
-				js.historyJMP[src].jam = js.history[src][i+1].msgNumber
+				tJMP.jam = history[i+1].msgNumber
 			} else {
 				break
 			}
@@ -598,11 +608,60 @@ func (js *JmpSubRouter) updateHistoryJMP(src peer.ID) {
 	} else {
 		// msg가 하나뿐이 없을 때
 		if history[0].msgNumber == 1 {
-			js.historyJMP[src].jam = 1
+			tJMP.jam = 1
 		}
 	}
 
-	js.historyJMP[src].max = history[len(history)-1].msgNumber
+	tJMP.max = history[len(history)-1].msgNumber
+	js.historyJMP[src] = &JamMaxPair{jam: tJMP.jam, max: tJMP.max}
+
+	return true
+}
+
+func (js *JmpSubRouter) checkDuplicated(msg *JmpMessage) bool {
+	msgSrc := msg.source
+	msgNum := msg.msgNumber
+	hJMP := js.historyJMP[msgSrc]
+
+	if hJMP == nil {
+		return false
+	}
+
+	// jam 보다 작으면 이미 있는 msg
+	if msgNum <= hJMP.jam {
+		return true
+	}
+	// max 랑 같으면 그것도 이미 있는 msg
+	if msgNum == hJMP.max {
+		return true
+	}
+
+	//if msgNum == hJMP.jam + 1 { hJMP.jam = msgNum }
+	//if msgNum > hJMP.max { hJMP.max = msgNum }
+
+	if msgNum < hJMP.max && js.containInHistory(msg) {
+		return true
+	}
+
+	return false
+}
+
+func (js *JmpSubRouter) containInHistory(msg *JmpMessage) bool {
+	msgSrc := msg.source
+	history := js.history[msgSrc]
+
+	// len 과 nil 의 차이가 뭐지...
+	if len(history) == 0 {
+		return false
+	}
+
+	for _, his := range history {
+		if his == msg {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (js *JmpSubRouter) sendRPC(pid peer.ID, out *RPC) {

@@ -56,8 +56,8 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 					}
 					es.hmsg[string(msg.MessageID)] = &hmsgInfo{
 						timestamp: *evt.Timestamp,
-						delay: int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].CreateTime)/1000000) +
-							networkDelay,
+						delay:     int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].CreateTime)/1000000) + networkDelay,
+						//+ networkDelay,
 						hop: int(*evt.RecvRPC.Meta.Messages[0].Hop),
 					}
 				}
@@ -94,8 +94,8 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 			}
 			es.hmsg[string(msg.MessageID)] = &hmsgInfo{
 				timestamp: evt.GetTimestamp(),
-				delay: int((evt.GetTimestamp()-evt.HitMessage.GetCreateTime())/1000000) +
-					networkDelay,
+				delay:     int((evt.GetTimestamp()-evt.HitMessage.GetCreateTime())/1000000) + networkDelay,
+				// + networkDelay,
 				hop: int(evt.HitMessage.GetHop()),
 			}
 		}
@@ -239,17 +239,17 @@ func printStat(psubs []*PubSub) {
 			}
 			fanout.Add(stats.fanout...)
 
-			fmt.Println("peer", i, "'s Stat")
-			fmt.Println("gmsg cnt:", stats.gmsg)
-			fmt.Println("smsg cnt:", stats.smsg)
-			fmt.Println("rmsg cnt:", stats.rmsg)
-			fmt.Println("hmsg cnt:", len(stats.hmsg))
-			fmt.Println("dmsg cnt:", stats.dmsg)
-			fmt.Println("hitmsg cnt:", stats.hitmsg)
-			fmt.Println("delay:\n\t", delay)
-			fmt.Println("hop:\n\t", hop)
-			fmt.Println("fanout:\n\t", fanout)
-			fmt.Println()
+			//fmt.Println("peer", i, "'s Stat")
+			//fmt.Println("gmsg cnt:", stats.gmsg)
+			//fmt.Println("smsg cnt:", stats.smsg)
+			//fmt.Println("rmsg cnt:", stats.rmsg)
+			//fmt.Println("hmsg cnt:", len(stats.hmsg))
+			//fmt.Println("dmsg cnt:", stats.dmsg)
+			//fmt.Println("hitmsg cnt:", stats.hitmsg)
+			//fmt.Println("delay:\n\t", delay)
+			//fmt.Println("hop:\n\t", hop)
+			//fmt.Println("fanout:\n\t", fanout)
+			//fmt.Println()
 
 			totalStatChan <- statGroup{
 				gmsg: stats.gmsg, smsg: stats.smsg, rmsg: stats.rmsg, hmsg: len(stats.hmsg),
