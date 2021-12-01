@@ -88,8 +88,8 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 50
-	numMsgs := 100
+	numHosts := 2
+	numMsgs := 5
 
 	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getJmpsubs(ctx, hosts)
@@ -120,15 +120,16 @@ func TestJmpPublish(t *testing.T) {
 
 	owners := make(map[int][]int)
 	for i := 0; i < numMsgs; i++ {
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 100)
 		if i%10 == 0 {
 			fmt.Println("publishing", i)
 		}
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		//owner := i % len(psubs)
-		owner := rand.Intn(len(psubs))
-		//owner := 0
+		//owner := rand.Intn(len(psubs))
+
+		owner := 0
 		owners[owner] = append(owners[owner], i)
 
 		err := topics[owner].Publish(ctx, msg)
@@ -153,7 +154,7 @@ func TestJmpPublish(t *testing.T) {
 	for ow, msgNum := range owners {
 		sum += len(msgNum)
 		// 각 pubsub peer 가 보유한 msg 개수 확인
-		fmt.Println(ow, "sent a total of", len(msgNum), "msgs: \t", msgNum)
+		//fmt.Println(ow, "sent a total of", len(msgNum), "msgs: \t", msgNum)
 
 		for i, ps := range psubs {
 			assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
@@ -162,14 +163,14 @@ func TestJmpPublish(t *testing.T) {
 				stringMsg := strings.Split(string(msg.Data), " ")
 				recvMsgs = append(recvMsgs, stringMsg[0])
 			}
-			fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
+			//fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
 			if len(recvMsgs) == 0 {
 				fmt.Println("\tgossipJMP", ps.rt.(*JmpSubRouter).gossipJMP[psubs[ow].signID])
 				fmt.Println("\thistoryJMP", ps.rt.(*JmpSubRouter).historyJMP[psubs[ow].signID])
 			}
 		}
-		fmt.Println()
-		fmt.Println()
+		//fmt.Println()
+		//fmt.Println()
 	}
 
 	//assert.Equal(t, sum, numMsgs, "total msg count is different")

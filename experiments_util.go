@@ -6,6 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
+	"github.com/mr-tron/base58/base58"
+	chart "github.com/wcharczuk/go-chart/v2"
+	"github.com/wcharczuk/go-chart/v2/drawing"
+
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -26,11 +30,25 @@ type experimentsStats struct {
 	hmsg             map[string]*hmsgInfo
 	dmsg, hitmsg     int
 	fanout           []int
+	visual           *visualization
+	startTime        int64
 }
 
 type hmsgInfo struct {
 	timestamp  int64
 	delay, hop int
+}
+
+type visualization struct {
+	recv map[string][]int64
+	send map[string][]int64
+}
+
+func NewVisualization() *visualization {
+	return &visualization{
+		recv: make(map[string][]int64),
+		send: make(map[string][]int64),
+	}
 }
 
 func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
@@ -39,6 +57,8 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 	max := 200
 
 	switch evt.GetType() {
+	case pb.TraceEvent_JOIN:
+		es.startTime = evt.GetTimestamp() / 1000000
 	case pb.TraceEvent_PUBLISH_MESSAGE:
 		// check gmsg
 		es.gmsg++
@@ -50,12 +70,17 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				es.rmsg++
 				// check hmsg
 				if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
+					senderID := base58.Encode(evt.PeerID)
+					senderID = senderID[len(senderID)-6:]
+					recvTime := (evt.GetTimestamp() - evt.RecvRPC.Meta.Messages[0].GetCreateTime()) / 1000000
+					es.visual.recv[senderID] = append(es.visual.recv[senderID], recvTime)
+
 					networkDelay := 0
 					for i := 0; i < int(*evt.RecvRPC.Meta.Messages[0].Hop); i++ {
 						networkDelay += rand.Intn(max-min+1) + min
 					}
 					es.hmsg[string(msg.MessageID)] = &hmsgInfo{
-						timestamp: *evt.Timestamp,
+						timestamp: evt.GetTimestamp(),
 						delay:     int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].CreateTime)/1000000) + networkDelay,
 						//+ networkDelay,
 						hop: int(*evt.RecvRPC.Meta.Messages[0].Hop),
@@ -74,12 +99,22 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 			for _ = range evt.SendRPC.Meta.Messages {
 				// check smsg
 				es.smsg++
+
+				senderID := base58.Encode(evt.SendRPC.SendTo)
+				senderID = senderID[len(senderID)-6:]
+				recvTime := evt.GetTimestamp()/1000000 - es.startTime
+				es.visual.send[senderID] = append(es.visual.send[senderID], recvTime)
 			}
 		}
 		if len(evt.SendRPC.Meta.Jmp) > 0 {
 			for _, jmp := range evt.SendRPC.Meta.Jmp {
 				es.smsg += len(jmp.JmpMsgs)
 				es.fanout = append(es.fanout, int(jmp.GetFanout()))
+
+				senderID := base58.Encode(evt.SendRPC.SendTo)
+				senderID = senderID[len(senderID)-6:]
+				recvTime := evt.GetTimestamp()/1000000 - es.startTime
+				es.visual.send[senderID] = append(es.visual.send[senderID], recvTime)
 			}
 		}
 	case pb.TraceEvent_DUPLICATE_MESSAGE:
@@ -88,6 +123,11 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 		es.hitmsg++
 		msg := evt.HitMessage
 		if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
+			senderID := base58.Encode(evt.PeerID)
+			senderID = senderID[len(senderID)-6:]
+			recvTime := (evt.GetTimestamp() - evt.HitMessage.GetCreateTime()) / 1000000
+			es.visual.recv[senderID] = append(es.visual.recv[senderID], recvTime)
+
 			networkDelay := 0
 			for i := 0; i < int(evt.HitMessage.GetHop()); i++ {
 				networkDelay += rand.Intn(max-min+1) + min
@@ -99,6 +139,7 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				hop: int(evt.HitMessage.GetHop()),
 			}
 		}
+
 	}
 }
 
@@ -198,17 +239,32 @@ func printStat(psubs []*PubSub) {
 		gmsg, smsg, rmsg, hmsg int
 		dmsg, hitmsg           int
 		delay, hop, fanout     IncrementalStats
+		recv                   map[string][]int64
+		check                  int
 	}
 
 	var wg sync.WaitGroup
-	totalStat := &statGroup{}
+	totalStat := &statGroup{recv: make(map[string][]int64)}
 	totalStatChan := make(chan statGroup, len(psubs))
+
+	//var splitPsubs [][]*PubSub
+	//spliter := len(psubs) / 50
+	//fmt.Println(spliter)
+	//
+	//for i := 0; i < spliter; i++ {
+	//	splitPsubs = append(splitPsubs, psubs[i*50:(i+1)*50])
+	//}
+
+	//for _, split := range splitPsubs {
 	for i := 0; i < len(psubs); i++ {
 		wg.Add(1)
 		go func(i int, totalStatChan chan statGroup) {
 			var delay, hop, fanout IncrementalStats
 			var evt pb.TraceEvent
-			stats := &experimentsStats{hmsg: make(map[string]*hmsgInfo)}
+			stats := &experimentsStats{
+				hmsg:   make(map[string]*hmsgInfo),
+				visual: NewVisualization(),
+			}
 			delay.units = "ms"
 			hop.units = "hops"
 			fanout.units = "nodes"
@@ -217,7 +273,7 @@ func printStat(psubs []*PubSub) {
 			if err != nil {
 				panic(err)
 			}
-			//defer f.Close()
+			defer f.Close()
 
 			dec := json.NewDecoder(f)
 			for {
@@ -227,10 +283,6 @@ func printStat(psubs []*PubSub) {
 					break
 				}
 				stats.evaluateStat(&evt)
-			}
-			err = f.Close()
-			if err != nil {
-				return
 			}
 
 			for _, hm := range stats.hmsg {
@@ -250,16 +302,22 @@ func printStat(psubs []*PubSub) {
 			//fmt.Println("hop:\n\t", hop)
 			//fmt.Println("fanout:\n\t", fanout)
 			//fmt.Println()
+			//fmt.Println(len(stats.visual.recv))
+			//drawTimePlot(stats.visual.recv, i)
+			//drawScatterPlot(stats.visual.recv, "recv", strconv.Itoa(i))
+			//drawScatterPlot(stats.visual.send, "send", strconv.Itoa(i))
 
 			totalStatChan <- statGroup{
 				gmsg: stats.gmsg, smsg: stats.smsg, rmsg: stats.rmsg, hmsg: len(stats.hmsg),
 				delay: delay, hop: hop, fanout: fanout,
-				dmsg: stats.dmsg, hitmsg: stats.hitmsg}
+				dmsg: stats.dmsg, hitmsg: stats.hitmsg,
+				recv: stats.visual.recv, check: len(stats.visual.recv),
+			}
 			wg.Done()
 		}(i, totalStatChan)
 	}
-
 	wg.Wait()
+	//}
 	close(totalStatChan)
 
 	for c := range totalStatChan {
@@ -272,7 +330,21 @@ func printStat(psubs []*PubSub) {
 		totalStat.delay.AddWithIncrementalStats(c.delay)
 		totalStat.hop.AddWithIncrementalStats(c.hop)
 		totalStat.fanout.AddWithIncrementalStats(c.fanout)
+		totalStat.check += c.check
+		for k, v := range c.recv {
+			totalStat.recv[k] = append(totalStat.recv[k], v...)
+		}
 	}
+	checkerRecvPeers := 0
+	checkerMsgLen := 0
+	for _, v := range totalStat.recv {
+		checkerRecvPeers++
+		checkerMsgLen += len(v)
+	}
+
+	fmt.Println("total recv data size with checkerMsgLen: ", checkerMsgLen)
+	fmt.Println("total recved peers: ", len(totalStat.recv), checkerRecvPeers)
+	drawScatterPlot(totalStat.recv, "recv", "total")
 
 	fmt.Println("total gmsg: ", totalStat.gmsg)
 	fmt.Println("total smsg: ", totalStat.smsg)
@@ -323,6 +395,73 @@ func dupCounter(list []int) map[int]int {
 		}
 	}
 	return counter
+}
+
+func drawScatterPlot(data map[string][]int64, dataMode string, peerNum string) {
+	xValues := []float64{}
+	yValues := []float64{}
+	stringToIndex := make(map[string]float64)
+	i := 0
+	for k, v := range data {
+		i++
+		stringToIndex[k] = float64(i)
+		for _, y := range v {
+			xValues = append(xValues, float64(i))
+			yValues = append(yValues, float64(y))
+		}
+	}
+
+	viridisByY := func(xr, yr chart.Range, index int, x, y float64) drawing.Color {
+		return chart.Viridis(y, yr.GetMin(), yr.GetMax())
+	}
+
+	graph := chart.Chart{
+		Series: []chart.Series{
+			chart.ContinuousSeries{
+				Style: chart.Style{
+					StrokeWidth:      chart.Disabled,
+					DotWidth:         4,
+					DotColorProvider: viridisByY,
+				},
+				XValues: xValues,
+				YValues: yValues,
+				//XValues: chart.Seq{Sequence: chart.NewLinearSequence().WithStart(0).WithEnd(127)}.Values(),
+				//YValues: chart.Seq{Sequence: chart.NewRandomSequence().WithLen(128).WithMin(0).WithMax(1024)}.Values(),
+			},
+		},
+	}
+
+	f, _ := os.Create(fmt.Sprintf("./visualization_%s/output_%s.png", dataMode, peerNum))
+	defer f.Close()
+
+	graph.Render(chart.PNG, f)
+}
+
+func drawTimePlot(data map[string][]int64, peerNum int) {
+	drawable := []chart.Value{}
+
+	for k, v := range data {
+		for _, y := range v {
+			drawable = append(drawable, chart.Value{Value: float64(y), Label: k})
+		}
+	}
+
+	graph := chart.BarChart{
+		Title: "Test Bar Chart",
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 40,
+			},
+		},
+		Height:   512,
+		BarWidth: 60,
+		Bars:     drawable,
+	}
+
+	f, _ := os.Create(fmt.Sprintf("./visualization/output_%d.png", peerNum))
+	defer f.Close()
+
+	graph.Render(chart.PNG, f)
 }
 
 func drawCoveragePlot(data map[int]int, denominator int, name string) {
