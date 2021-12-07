@@ -44,6 +44,7 @@ message Message {
 
 	optional int64 hop = 7;
 	optional int64 createtime = 8;
+	optional int64 num = 9;
 }
 
 message ControlMessage {
