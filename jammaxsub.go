@@ -32,9 +32,9 @@ func DefaultJamMaxSubParams() JamMaxSubParams {
 		MinFan:              JamMaxSubMinFan,
 		MaxFan:              JamMaxSubMaxFan,
 		MaxSendBuf:          JamMaxSubMaxSendBuf,
-		MaxHistoryBuf:       JamMaxSubMaxSendBuf,
+		MaxHistoryBuf:       JamMaxSubMaxHistoryBuf,
 		GossipInitialDelay:  JamMaxSubGossipInitialDelay,
-		GossipCycleInterval: JamMaxSubGossipInitialDelay,
+		GossipCycleInterval: JamMaxSubGossipCycleInterval,
 	}
 }
 

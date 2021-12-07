@@ -155,8 +155,8 @@ func TestDenseGossipsub(t *testing.T) {
 	//	GossipSubFanoutTTL = 60 * time.Second
 	//}()
 
-	numHosts := 100
-	numMsgs := 5
+	numHosts := 10
+	numMsgs := 200
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -188,7 +188,7 @@ func TestDenseGossipsub(t *testing.T) {
 
 	for i := 0; i < numMsgs; i++ {
 		//fmt.Println("msg publish")
-		time.Sleep(time.Millisecond * 100)
+		//time.Sleep(time.Millisecond * 100)
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := rand.Intn(5)

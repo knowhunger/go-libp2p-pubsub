@@ -13,18 +13,20 @@ import (
 )
 
 func TestShuffle(t *testing.T) {
-	a := []int{1, 2, 3, 4, 5, 6, 7}
 
-	shuffle := func(nums []int) {
-		for i := range nums {
-			j := rand.Intn(i + 1)
-			nums[i], nums[j] = nums[j], nums[i]
-		}
+	type school struct {
+		name string
+	}
+	type st struct {
+		school
+		name string
+		age  int
 	}
 
-	shuffle(a)
+	cau := school{name: "CAU"}
+	psh := st{school: cau, name: "psh", age: 28}
 
-	fmt.Println(a)
+	fmt.Println(psh)
 }
 
 func BenchmarkSort(b *testing.B) {
@@ -88,7 +90,7 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 2
+	numHosts := 10
 	numMsgs := 5
 
 	hosts := getNetHosts(t, ctx, numHosts)
@@ -120,10 +122,13 @@ func TestJmpPublish(t *testing.T) {
 
 	owners := make(map[int][]int)
 	for i := 0; i < numMsgs; i++ {
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 1000)
 		if i%10 == 0 {
 			fmt.Println("publishing", i)
 		}
+		fmt.Println()
+		fmt.Println()
+		fmt.Println()
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		//owner := i % len(psubs)

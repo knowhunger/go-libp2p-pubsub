@@ -25,25 +25,23 @@ const (
 )
 
 var (
-	JmpMinFan                = 3 // range 1, 2, 3
-	JmpMaxFan                = 6 // range 3, 6, 9, 12
-	JmpMaxMsgBuf             = 30
-	JmpMaxHistory            = 120 // gossipsub = 5000
-	JMPMaxGenerateMsg        = 5000
-	JmpInitialDelay          = 100 * time.Millisecond
-	JmpCycleInterval         = 1000 * time.Millisecond // gossipsub = 1 * sec
-	JmpSentPeerMaintainCycle = 4
+	JmpMinFan            = 3 // range 1, 2, 3
+	JmpMaxFan            = 6 // range 3, 6, 9, 12
+	JmpMaxMsgBuf         = 30
+	JmpMaxHistory        = 120 // gossipsub = 5000
+	JmpMaxGenerateMsg    = 5000
+	JmpCycleInitialDelay = 100 * time.Millisecond
+	JmpCycleInterval     = 1000 * time.Millisecond // gossipsub = 1 * sec
 )
 
 type JmpSubParams struct {
-	MinFan                int
-	MaxFan                int
-	MaxMsgBuf             int
-	MaxHistoryBuf         int
-	MaxGenerateMsg        int
-	InitialDelay          time.Duration
-	CycleInterval         time.Duration
-	SentPeerMaintainCycle int
+	MinFan            int
+	MaxFan            int
+	MaxMsgBuf         int
+	MaxHistoryBuf     int
+	MaxGenerateMsg    int
+	CycleInitialDelay time.Duration
+	CycleInterval     time.Duration
 }
 
 type JamMaxPair struct {
@@ -71,12 +69,11 @@ func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error
 		historyJMP:   make(map[peer.ID]*JamMaxPair),
 		gossipJMP:    make(map[peer.ID]*JamMaxPair),
 		history:      make(map[peer.ID][]*JmpMessage),
-		msgBuf:       make(map[peer.ID]*JmpMsgBuf),
 		myMsg:        make([]*JmpMessage, 0, params.MaxGenerateMsg),
 		isMsgUpdated: make(chan bool, params.MaxFan),
-		mcache:       NewMessageCache(params.MinFan, params.MaxHistoryBuf),
-		protos:       []protocol.ID{JmpSubID},
-		params:       params,
+		// mcache:       NewMessageCache(params.MinFan, params.MaxHistoryBuf),
+		protos: []protocol.ID{JmpSubID},
+		params: params,
 	}
 
 	rt.membershipRouter.rt = rt
@@ -87,14 +84,13 @@ func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error
 
 func DefaultJmpSubParams() JmpSubParams {
 	return JmpSubParams{
-		MinFan:                JmpMinFan,
-		MaxFan:                JmpMaxFan,
-		MaxMsgBuf:             JmpMaxMsgBuf,
-		MaxHistoryBuf:         JmpMaxHistory,
-		MaxGenerateMsg:        JMPMaxGenerateMsg,
-		InitialDelay:          JmpInitialDelay,
-		CycleInterval:         JmpCycleInterval,
-		SentPeerMaintainCycle: JmpSentPeerMaintainCycle,
+		MinFan:            JmpMinFan,
+		MaxFan:            JmpMaxFan,
+		MaxMsgBuf:         JmpMaxMsgBuf,
+		MaxHistoryBuf:     JmpMaxHistory,
+		MaxGenerateMsg:    JmpMaxGenerateMsg,
+		CycleInitialDelay: JmpCycleInitialDelay,
+		CycleInterval:     JmpCycleInterval,
 	}
 }
 
@@ -111,7 +107,6 @@ type JmpSubRouter struct {
 
 	// for msg caching
 	history map[peer.ID][]*JmpMessage
-	msgBuf  map[peer.ID]*JmpMsgBuf
 
 	// If you have accepted the message, then true
 	isMsgUpdated chan bool
@@ -122,7 +117,7 @@ type JmpSubRouter struct {
 	// Messages I made
 	myMsg []*JmpMessage
 
-	mcache *MessageCache
+	// mcache *MessageCache
 
 	// for track
 	tracer *pubsubTracer
@@ -143,7 +138,7 @@ func (js *JmpSubRouter) Attach(p *PubSub) {
 	js.myID = p.host.ID()
 
 	// start using the same msg ID function as PubSub for caching messages.
-	js.mcache.SetMsgIdFn(p.msgID)
+	// js.mcache.SetMsgIdFn(p.msgID)
 
 	// set fanout
 	js.fanout = js.params.MaxFan
@@ -296,7 +291,7 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 		}
 
 		// 3a)
-		js.putHistory(jmpMsgs...)
+		js.putHistory("recv", jmpMsgs...)
 		recvJmpMessages[recvSrc] = jmpMsgs
 
 		// update gossipJmp
@@ -328,7 +323,7 @@ func (js *JmpSubRouter) Publish(msg *Message) {
 		// publish 할 때는 본인이 생성한 msg 가 아닌 경우 history 에 담지 않음
 		// 다른 사람이 보낸 msg 를 history 에 담는 것은 handleRPC 에서
 		jmpmsg := js.numbering(msg)
-		js.putHistory(jmpmsg)
+		js.putHistory("pub", jmpmsg)
 
 		// set gossipJMP
 		js.gossipJMP[js.myID].max = js.historyJMP[js.myID].max
@@ -336,7 +331,7 @@ func (js *JmpSubRouter) Publish(msg *Message) {
 }
 
 func (js *JmpSubRouter) nextCycle() {
-	time.Sleep(js.params.InitialDelay)
+	time.Sleep(js.params.CycleInitialDelay)
 	select {
 	case js.p.eval <- js.gossip:
 	case <-js.p.ctx.Done():
@@ -349,12 +344,14 @@ func (js *JmpSubRouter) nextCycle() {
 	for {
 		select {
 		case <-js.isMsgUpdated:
+			fmt.Println("goroutine call", js.myID)
 			js.fanout = js.params.MaxFan
 			select {
 			case js.p.eval <- js.gossip:
 			case <-js.p.ctx.Done():
 				return
 			}
+
 		case <-ticker.C:
 			select {
 			case js.p.eval <- js.gossip:
@@ -368,6 +365,7 @@ func (js *JmpSubRouter) nextCycle() {
 }
 
 func (js *JmpSubRouter) gossip() {
+	fmt.Println("gossip func call", js.myID)
 	// 1a) loading push gossip
 	pushBuf, bufSize := js.loadPushGossip()
 	js.ensureMinimalFanout(bufSize)
@@ -534,7 +532,7 @@ func (js *JmpSubRouter) numbering(msg *Message) *JmpMessage {
 	return jmpmsg
 }
 
-func (js *JmpSubRouter) putHistory(jmpMsgs ...*JmpMessage) {
+func (js *JmpSubRouter) putHistory(mode string, jmpMsgs ...*JmpMessage) {
 	if jmpMsgs == nil {
 		return
 	}
@@ -586,6 +584,7 @@ loop:
 	}
 
 	if isUpdate {
+		fmt.Println(mode, js.myID)
 		js.isMsgUpdated <- UPDATED
 	}
 }
