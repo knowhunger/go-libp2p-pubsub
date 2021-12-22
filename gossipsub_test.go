@@ -1715,7 +1715,8 @@ func TestGossipsubPiggybackControl(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h.Close()
 	ps := getGossipsub(ctx, h)
 
 	blah := peer.ID("bogotr0n")
