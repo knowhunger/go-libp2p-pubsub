@@ -56,11 +56,11 @@ type JamMaxSubRouter struct {
 	fanout map[string]map[peer.ID]struct{} // select peer to send
 
 	// jam-max pair
-	hJMP map[string]map[peer.ID]*JamMaxPair
-	gJMP map[string]map[peer.ID]*JamMaxPair
+	hJMP map[string]*JamMaxPair
+	gJMP map[string]*JamMaxPair
 
 	// history buf
-	history map[string]map[peer.ID][]*JamMaxMessage
+	history map[string][]*JamMaxMessage
 	mcache  *MessageCache
 
 	// tracer
@@ -76,9 +76,9 @@ func NewJamMaxSubRouter(ctx context.Context, h host.Host, opts ...Option) (*PubS
 		peers:   make(map[peer.ID]protocol.ID),
 		protos:  GossipSubDefaultProtocols,
 		fanout:  make(map[string]map[peer.ID]struct{}),
-		hJMP:    make(map[string]map[peer.ID]*JamMaxPair),
-		gJMP:    make(map[string]map[peer.ID]*JamMaxPair),
-		history: make(map[string]map[peer.ID][]*JamMaxMessage),
+		hJMP:    make(map[string]*JamMaxPair),
+		gJMP:    make(map[string]*JamMaxPair),
+		history: make(map[string][]*JamMaxMessage),
 
 		mcache: NewMessageCache(params.MinFan, params.MaxFan),
 		params: params,
@@ -155,35 +155,19 @@ func (jms *JamMaxSubRouter) Publish(msg *Message) {
 	//	return
 	//}
 
+	// select peer to send
 }
 
 func (jms *JamMaxSubRouter) numbering(msg *Message) *JmpMessage {
-	if msg.GetFrom() == jms.myID {
-		return nil
-	}
+	return nil
+}
 
-	if msg.GetNum() != 0 {
-		return nil
-	} else {
+func (jms *JamMaxSubRouter) putHistory(msg *pb.Message) {
+	// duplicated check
 
-	}
+	// put
 
-	//if len(jms.myMsg) == 0 {
-	//	jmpmsg.msgNumber = 1
-	//	jms.myMsg = append(jms.myMsg, jmpmsg)
-	//} else {
-	//	last := jms.myMsg[len(jms.myMsg)-1].msgNumber
-	//	jmpmsg.msgNumber = last + 1
-	//	jms.myMsg = append(jms.myMsg, jmpmsg)
-	//}
-
-	jmpmsg := &JmpMessage{
-		Message: msg.Message,
-		source:  jms.myID,
-		sender:  jms.myID,
-	}
-
-	return jmpmsg
+	// sort by msg number
 }
 
 func (jms *JamMaxSubRouter) Join(topic string) {

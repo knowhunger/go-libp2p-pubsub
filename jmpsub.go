@@ -8,7 +8,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"math"
-	"math/rand"
 	"sort"
 	"time"
 )
@@ -20,13 +19,17 @@ const (
 const (
 	PUSH uint64 = iota
 	PULL
-
-	UPDATED bool = true
+)
+const (
+	UPDATED int = iota + 1
+	NEEDMOREGOSSIP
+	INEED
+	NEIGHBORNEED
 )
 
 var (
-	JmpMinFan            = 3 // range 1, 2, 3
-	JmpMaxFan            = 6 // range 3, 6, 9, 12
+	JmpMinFan            = 3 // range 1, 2, 3, 5(gossipsub)
+	JmpMaxFan            = 6 // range 3, 6, 9, 12(gossipsub)
 	JmpMaxMsgBuf         = 30
 	JmpMaxHistory        = 120 // gossipsub = 5000
 	JmpMaxGenerateMsg    = 5000
@@ -65,18 +68,18 @@ type JmpMsgBuf struct {
 func NewJmpSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error) {
 	params := DefaultJmpSubParams()
 	rt := &JmpSubRouter{
-		peers:        make(map[peer.ID]protocol.ID),
-		historyJMP:   make(map[peer.ID]*JamMaxPair),
-		gossipJMP:    make(map[peer.ID]*JamMaxPair),
-		history:      make(map[peer.ID][]*JmpMessage),
-		myMsg:        make([]*JmpMessage, 0, params.MaxGenerateMsg),
-		isMsgUpdated: make(chan bool, params.MaxFan),
+		peers:      make(map[peer.ID]protocol.ID),
+		historyJMP: make(map[peer.ID]*JamMaxPair),
+		gossipJMP:  make(map[peer.ID]*JamMaxPair),
+		history:    make(map[peer.ID][]*JmpMessage),
+		myMsg:      make([]*JmpMessage, 0, params.MaxGenerateMsg),
+		doGossip:   make(chan int, params.MaxFan),
 		// mcache:       NewMessageCache(params.MinFan, params.MaxHistoryBuf),
 		protos: []protocol.ID{JmpSubID},
 		params: params,
 	}
 
-	rt.membershipRouter.rt = rt
+	//rt.membershipRouter.rt = rt
 
 	// opts = append(opts, )
 	return NewPubSub(ctx, h, rt, opts...)
@@ -109,7 +112,7 @@ type JmpSubRouter struct {
 	history map[peer.ID][]*JmpMessage
 
 	// If you have accepted the message, then true
-	isMsgUpdated chan bool
+	doGossip chan int
 
 	// for select send peers
 	fanout int
@@ -124,7 +127,7 @@ type JmpSubRouter struct {
 
 	params JmpSubParams
 
-	membershipRouter
+	//membershipRouter
 }
 
 func (js *JmpSubRouter) Protocols() []protocol.ID {
@@ -225,6 +228,8 @@ func (js *JmpSubRouter) HandleRPC(rpc *RPC) {
 		}
 
 		js.setFanoutToPushed(senderFanout)
+	} else {
+		js.checkRecvAllMsgs()
 	}
 }
 
@@ -232,7 +237,7 @@ func (js *JmpSubRouter) loadPullGossip(recv map[peer.ID][]*JmpMessage) map[peer.
 	pullBuf := make(map[peer.ID]*JmpMsgBuf)
 
 	for src, gjmp := range js.gossipJMP {
-		tempJmp := gjmp
+		tempJmp := &JamMaxPair{jam: gjmp.jam, max: gjmp.max}
 
 		history := js.history[src]
 		if len(history) == 0 {
@@ -272,7 +277,7 @@ func (js *JmpSubRouter) loadPullGossip(recv map[peer.ID][]*JmpMessage) map[peer.
 	return pullBuf
 }
 
-func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) map[peer.ID][]*JmpMessage {
+func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpRPC) map[peer.ID][]*JmpMessage {
 	recvJmpMessages := make(map[peer.ID][]*JmpMessage)
 
 	for _, jmpRPC := range jmpRPCs {
@@ -290,10 +295,6 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 			})
 		}
 
-		// 3a)
-		js.putHistory("recv", jmpMsgs...)
-		recvJmpMessages[recvSrc] = jmpMsgs
-
 		// update gossipJmp
 		if js.gossipJMP[recvSrc] == nil {
 			js.gossipJMP[recvSrc] = &JamMaxPair{jam: 0, max: 0}
@@ -301,9 +302,58 @@ func (js *JmpSubRouter) HandelJmpRPC(sender peer.ID, jmpRPCs []*pb.JmpMsgRPC) ma
 
 		js.gossipJMP[recvSrc].jam = int(math.Min(float64(js.gossipJMP[recvSrc].jam), float64(int(*recvJMP.Jam))))
 		js.gossipJMP[recvSrc].max = int(math.Max(float64(js.gossipJMP[recvSrc].max), float64(int(*recvJMP.Max))))
+
+		// 3a)
+		recvJmpMessages[recvSrc] = jmpMsgs
+		js.putHistory(jmpMsgs...)
+
+		// update gossipJmp
+		//if js.gossipJMP[recvSrc] == nil {
+		//	js.gossipJMP[recvSrc] = &JamMaxPair{jam: 0, max: 0}
+		//}
+		//
+		//js.gossipJMP[recvSrc].jam = int(math.Min(float64(js.gossipJMP[recvSrc].jam), float64(int(*recvJMP.Jam))))
+		//js.gossipJMP[recvSrc].max = int(math.Max(float64(js.gossipJMP[recvSrc].max), float64(int(*recvJMP.Max))))
 	}
 
 	return recvJmpMessages
+}
+
+func (js *JmpSubRouter) checkRecvAllMsgs() {
+	toSend := make(map[peer.ID]struct{})
+
+	neighborNeedMsg := false
+	for src, gjmp := range js.gossipJMP {
+		if gjmp.jam != gjmp.max {
+			neighborNeedMsg = true
+			toSend[src] = struct{}{}
+			break
+		}
+	}
+
+	iNeedMsg := false
+	for src, hjmp := range js.historyJMP {
+		if hjmp.jam != hjmp.max {
+			iNeedMsg = true
+			toSend[src] = struct{}{}
+			break
+		}
+	}
+
+	if neighborNeedMsg || iNeedMsg {
+		js.doGossip <- NEEDMOREGOSSIP
+
+		//pushBuf, bufSize := js.loadPushGossip()
+		//js.ensureMinimalFanout(bufSize)
+		//out := js.rpcWithMsgBuf(pushBuf, PUSH)
+		//
+		//if out != nil {
+		//	for pid := range toSend {
+		//		js.sendRPC(pid, out)
+		//	}
+		//	js.splitFanoutInHalf()
+		//}
+	}
 }
 
 func (js *JmpSubRouter) setFanoutToPushed(senderFanout int) {
@@ -323,7 +373,7 @@ func (js *JmpSubRouter) Publish(msg *Message) {
 		// publish 할 때는 본인이 생성한 msg 가 아닌 경우 history 에 담지 않음
 		// 다른 사람이 보낸 msg 를 history 에 담는 것은 handleRPC 에서
 		jmpmsg := js.numbering(msg)
-		js.putHistory("pub", jmpmsg)
+		js.putHistory(jmpmsg)
 
 		// set gossipJMP
 		js.gossipJMP[js.myID].max = js.historyJMP[js.myID].max
@@ -343,15 +393,16 @@ func (js *JmpSubRouter) nextCycle() {
 
 	for {
 		select {
-		case <-js.isMsgUpdated:
-			fmt.Println("goroutine call", js.myID)
-			js.fanout = js.params.MaxFan
+		case isUpdate := <-js.doGossip:
+			if isUpdate == UPDATED {
+				//fmt.Println("goroutine call", js.myID, isUpdate)
+				js.fanout = js.params.MaxFan
+			}
 			select {
 			case js.p.eval <- js.gossip:
 			case <-js.p.ctx.Done():
 				return
 			}
-
 		case <-ticker.C:
 			select {
 			case js.p.eval <- js.gossip:
@@ -365,10 +416,11 @@ func (js *JmpSubRouter) nextCycle() {
 }
 
 func (js *JmpSubRouter) gossip() {
-	fmt.Println("gossip func call", js.myID)
 	// 1a) loading push gossip
 	pushBuf, bufSize := js.loadPushGossip()
 	js.ensureMinimalFanout(bufSize)
+
+	//fmt.Println("gossip func call", bufSize, js.myID)
 
 	for topic, _ := range js.p.topics {
 		// subscribe 하고 있는 topic 을 대상으로 msg 를 전달
@@ -379,7 +431,6 @@ func (js *JmpSubRouter) gossip() {
 		out := js.rpcWithMsgBuf(pushBuf, PUSH)
 
 		if out != nil {
-			//fmt.Println(len(toSend))
 			for pid := range toSend {
 				js.sendRPC(pid, out)
 			}
@@ -394,12 +445,16 @@ func (js *JmpSubRouter) loadPushGossip() (map[peer.ID]*JmpMsgBuf, int) {
 	pushBuf := make(map[peer.ID]*JmpMsgBuf)
 
 	for src, gjmp := range js.gossipJMP {
-		tempJmp := gjmp
+		tempJmp := &JamMaxPair{jam: gjmp.jam, max: gjmp.max}
+		//if tempJmp.max != 0 {
+		//	fmt.Println("load Push Gossip", js.myID, "jam", tempJmp.jam, "max", tempJmp.max, "src", src)
+		//	fmt.Println("load Push Gossip", js.myID, "jam", gjmp.jam, "max", gjmp.max)
+		//}
 
 		history := js.history[src]
 		if len(history) == 0 {
 			pushBuf[src] = &JmpMsgBuf{
-				msgJmp: &JamMaxPair{jam: 0, max: tempJmp.max},
+				msgJmp: &JamMaxPair{jam: 0, max: gjmp.max},
 				msgBuf: nil,
 				source: src,
 			}
@@ -409,7 +464,7 @@ func (js *JmpSubRouter) loadPushGossip() (map[peer.ID]*JmpMsgBuf, int) {
 		msgBuf := make([]*JmpMessage, 0, js.params.MaxMsgBuf)
 
 		for _, msg := range history {
-			if tempJmp.jam < msg.msgNumber && msg.msgNumber <= tempJmp.max {
+			if gjmp.jam < msg.msgNumber && msg.msgNumber <= gjmp.max {
 				msgBuf = append(msgBuf, msg)
 			}
 		}
@@ -450,7 +505,7 @@ func (js *JmpSubRouter) rpcWithMsgBuf(msgBufs map[peer.ID]*JmpMsgBuf, mode uint6
 	}
 
 	// msgBufs 에 담긴 msg 와 js 를 rpc 에 담아서 return
-	var msgJmp []*pb.JmpMsgRPC
+	var jmpRPC []*pb.JmpRPC
 
 	for src, buf := range msgBufs {
 		if buf == nil {
@@ -458,23 +513,23 @@ func (js *JmpSubRouter) rpcWithMsgBuf(msgBufs map[peer.ID]*JmpMsgBuf, mode uint6
 		}
 
 		// 보낼 msg 를 rpc 에 담음
-		var jmpMsgs []*pb.JmpMsgRPC_JmpMsg
+		var jmpMsgs []*pb.JmpRPC_JmpMsg
 
 		for _, msg := range buf.msgBuf {
 			num := int64(msg.msgNumber)
-			jmpMsgs = append(jmpMsgs, &pb.JmpMsgRPC_JmpMsg{
+			jmpMsgs = append(jmpMsgs, &pb.JmpRPC_JmpMsg{
 				MsgBuf:    msg.Message,
 				MsgNumber: &num,
 			})
 		}
 
-		// msgJmp 를 설정
+		// jmpRPC 를 설정
 		msgJam := int64(buf.msgJmp.jam)
 		msgMax := int64(buf.msgJmp.max)
 
-		msgJmp = append(msgJmp, &pb.JmpMsgRPC{
+		jmpRPC = append(jmpRPC, &pb.JmpRPC{
 			JmpMsgs:       jmpMsgs,
-			MsgJamMaxPair: &pb.JmpMsgRPC_JamMaxPair{Jam: &msgJam, Max: &msgMax},
+			MsgJamMaxPair: &pb.JmpRPC_JamMaxPair{Jam: &msgJam, Max: &msgMax},
 			Source:        []byte(src), // src == buf.source
 		})
 
@@ -483,12 +538,16 @@ func (js *JmpSubRouter) rpcWithMsgBuf(msgBufs map[peer.ID]*JmpMsgBuf, mode uint6
 		if len(jmpMsgs) > 0 {
 			js.gossipJMP[src].jam = int(*jmpMsgs[len(jmpMsgs)-1].MsgNumber)
 		}
+
+		//if js.gossipJMP[src].jam != js.gossipJMP[src].max {
+		//	js.doGossip <- NEIGHBORNEED
+		//}
 	}
 
 	msgFanout := int64(js.fanout)
 	return &RPC{
 		RPC: pb.RPC{
-			JmpRPC:  msgJmp,
+			JmpRPC:  jmpRPC,
 			JmpMode: &mode,
 			Sender:  []byte(js.myID),
 			Fanout:  &msgFanout,
@@ -532,7 +591,7 @@ func (js *JmpSubRouter) numbering(msg *Message) *JmpMessage {
 	return jmpmsg
 }
 
-func (js *JmpSubRouter) putHistory(mode string, jmpMsgs ...*JmpMessage) {
+func (js *JmpSubRouter) putHistory(jmpMsgs ...*JmpMessage) {
 	if jmpMsgs == nil {
 		return
 	}
@@ -543,7 +602,7 @@ loop:
 	for _, msg := range jmpMsgs {
 		src := msg.source
 
-		//if js.checkDuplicated(msg) {
+		//if js.isDuplicated(msg) {
 		//	js.tracer.DuplicateMessage(&Message{Message: msg.Message, ReceivedFrom: src})
 		//	continue loop
 		//}
@@ -584,8 +643,7 @@ loop:
 	}
 
 	if isUpdate {
-		fmt.Println(mode, js.myID)
-		js.isMsgUpdated <- UPDATED
+		js.doGossip <- UPDATED
 	}
 }
 
@@ -614,12 +672,21 @@ func (js *JmpSubRouter) updateHistoryJMP(src peer.ID) bool {
 	tJMP.max = history[len(history)-1].msgNumber
 	js.historyJMP[src] = &JamMaxPair{jam: tJMP.jam, max: tJMP.max}
 
+	if tJMP.max > js.gossipJMP[src].max {
+		js.gossipJMP[src].max = tJMP.max
+	}
+
+	//if js.historyJMP[src].jam != js.historyJMP[src].max {
+	//	js.doGossip <- INEED
+	//}
+
 	return true
 }
 
-func (js *JmpSubRouter) checkDuplicated(msg *JmpMessage) bool {
+func (js *JmpSubRouter) isDuplicated(msg *JmpMessage) bool {
 	msgSrc := msg.source
 	msgNum := msg.msgNumber
+	// 값을 변경하는 것이 아니라 비교만 하면 되는거라 그냥 사용해도 됨
 	hJMP := js.historyJMP[msgSrc]
 
 	if hJMP == nil {
@@ -727,20 +794,24 @@ func (js *JmpSubRouter) selectPeerWithFanout(topic string) map[peer.ID]struct{} 
 }
 
 func (js *JmpSubRouter) getRandomPeersWithFanout(pmap map[peer.ID]struct{}) []peer.ID {
+	// 변경 되어도 상관 없는 peer list
 	peers := peerMapToList(pmap)
 
+	// shuffle 이후 fanout 수만큼 잘라서 사용
 	shufflePeers(peers)
 
 	if js.fanout > 0 && len(peers) > js.fanout {
 		peers = peers[:js.fanout]
 	}
 
-	return peers
-}
+	//// TODO: uniform 한 random 함수를 사용해 보면 좋을 것 같다
+	//if js.fanout > 0 {
+	//	for len(peers) > js.fanout {
+	//		r := rand.Intn(len(peers))
+	//		peers[r] = peers[len(peers)-1]
+	//		peers = peers[:len(peers)-1]
+	//	}
+	//}
 
-func shuffleHistory(msgs []*JmpMessage) {
-	for i := range msgs {
-		j := rand.Intn(i + 1)
-		msgs[i], msgs[j] = msgs[j], msgs[i]
-	}
+	return peers
 }

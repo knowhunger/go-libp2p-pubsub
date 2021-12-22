@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-gota/gota/dataframe"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/mr-tron/base58/base58"
 	chart "github.com/wcharczuk/go-chart/v2"
@@ -32,6 +33,7 @@ type experimentsStats struct {
 	fanout           []int
 	visual           *visualization
 	startTime        int64
+	multipleSend     int
 }
 
 type hmsgInfo struct {
@@ -40,14 +42,16 @@ type hmsgInfo struct {
 }
 
 type visualization struct {
-	recv map[string][]int64
+	hit  map[string][]int64
 	send map[string][]int64
+	recv map[string][]int64
 }
 
 func NewVisualization() *visualization {
 	return &visualization{
-		recv: make(map[string][]int64),
+		hit:  make(map[string][]int64),
 		send: make(map[string][]int64),
+		recv: make(map[string][]int64),
 	}
 }
 
@@ -70,35 +74,48 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 				es.rmsg++
 				// check hmsg
 				if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
-					senderID := base58.Encode(evt.PeerID)
-					senderID = senderID[len(senderID)-6:]
-					recvTime := (evt.GetTimestamp() - evt.RecvRPC.Meta.Messages[0].GetCreateTime()) / 1000000
-					es.visual.recv[senderID] = append(es.visual.recv[senderID], recvTime)
-
 					networkDelay := 0
-					for i := 0; i < int(*evt.RecvRPC.Meta.Messages[0].Hop); i++ {
+					hop := int(msg.GetHop())
+
+					for i := 0; i < hop; i++ {
 						networkDelay += rand.Intn(max-min+1) + min
 					}
+
 					es.hmsg[string(msg.MessageID)] = &hmsgInfo{
 						timestamp: evt.GetTimestamp(),
-						delay:     int((*evt.Timestamp-*evt.RecvRPC.Meta.Messages[0].CreateTime)/1000000) + networkDelay,
-						//+ networkDelay,
-						hop: int(*evt.RecvRPC.Meta.Messages[0].Hop),
+						delay:     int((evt.GetTimestamp()-msg.GetCreateTime())/1000000) + networkDelay,
+						hop:       hop,
 					}
+
+					senderID := base58.Encode(evt.PeerID)
+					senderID = senderID[len(senderID)-6:]
+					//recvTime := (evt.GetTimestamp() - msg.GetCreateTime()) / 1000000
+					//es.visual.hit[senderID] = append(es.visual.hit[senderID], recvTime)
+					es.visual.hit[senderID] = append(es.visual.hit[senderID], int64(hop))
 				}
 			}
 		}
 		if len(evt.RecvRPC.Meta.Jmp) > 0 {
 			for _, jmp := range evt.RecvRPC.Meta.Jmp {
 				es.rmsg += len(jmp.JmpMsgs)
+				//if len(jmp.JmpMsgs) > 1 {
+				//	es.multipleSend++
+				//}
+				if len(jmp.JmpMsgs) > 0 {
+					senderID := base58.Encode(evt.PeerID)
+					senderID = senderID[len(senderID)-6:]
+					recvTime := evt.GetTimestamp() / 1000000
+					es.visual.recv[senderID] = append(es.visual.recv[senderID], recvTime)
+				}
 			}
 		}
 	case pb.TraceEvent_SEND_RPC:
 		if len(evt.SendRPC.Meta.Messages) > 0 {
 			// check only msg rpc
-			for _ = range evt.SendRPC.Meta.Messages {
+			for _, msg := range evt.SendRPC.Meta.Messages {
 				// check smsg
 				es.smsg++
+				es.fanout = append(es.fanout, int(msg.GetFanout()))
 
 				senderID := base58.Encode(evt.SendRPC.SendTo)
 				senderID = senderID[len(senderID)-6:]
@@ -123,21 +140,25 @@ func (es *experimentsStats) evaluateStat(evt *pb.TraceEvent) {
 		es.hitmsg++
 		msg := evt.HitMessage
 		if _, ok := es.hmsg[string(msg.MessageID)]; !ok {
-			senderID := base58.Encode(evt.PeerID)
-			senderID = senderID[len(senderID)-6:]
-			recvTime := (evt.GetTimestamp() - evt.HitMessage.GetCreateTime()) / 1000000
-			es.visual.recv[senderID] = append(es.visual.recv[senderID], recvTime)
-
+			hop := int(evt.HitMessage.GetHop())
 			networkDelay := 0
-			for i := 0; i < int(evt.HitMessage.GetHop()); i++ {
+
+			for i := 0; i < hop; i++ {
 				networkDelay += rand.Intn(max-min+1) + min
 			}
+
 			es.hmsg[string(msg.MessageID)] = &hmsgInfo{
 				timestamp: evt.GetTimestamp(),
 				delay:     int((evt.GetTimestamp()-evt.HitMessage.GetCreateTime())/1000000) + networkDelay,
 				// + networkDelay,
-				hop: int(evt.HitMessage.GetHop()),
+				hop: hop,
 			}
+
+			senderID := base58.Encode(evt.PeerID)
+			senderID = senderID[len(senderID)-6:]
+			recvTime := (evt.GetTimestamp() - evt.HitMessage.GetCreateTime()) / 1000000
+			es.visual.hit[senderID] = append(es.visual.hit[senderID], recvTime) //+int64(networkDelay)
+			//es.visual.hit[senderID] = append(es.visual.hit[senderID], int64(hop)) //+int64(networkDelay)
 		}
 
 	}
@@ -190,6 +211,8 @@ func opsPublish(ctx context.Context, tp *Topic, msgs []*Subscription, fileInfo f
 }
 
 type IncrementalStats struct {
+	id       string
+	seq      int
 	min, max int
 	avg      float64
 	slice    []int
@@ -233,7 +256,7 @@ func (is *IncrementalStats) CalculateStats() {
 	is.max = is.slice[len(is.slice)-1]
 }
 
-func printStat(psubs []*PubSub) {
+func printStat(psubs []*PubSub, rtName string) {
 	fmt.Println("printStat starts")
 	type statGroup struct {
 		gmsg, smsg, rmsg, hmsg int
@@ -242,6 +265,8 @@ func printStat(psubs []*PubSub) {
 		recv                   map[string][]int64
 		check                  int
 	}
+
+	var heatmap []IncrementalStats
 
 	var wg sync.WaitGroup
 	totalStat := &statGroup{recv: make(map[string][]int64)}
@@ -256,7 +281,12 @@ func printStat(psubs []*PubSub) {
 	//}
 
 	//for _, split := range splitPsubs {
+	pmap := make(map[string]int)
 	for i := 0; i < len(psubs); i++ {
+		senderID := base58.Encode([]byte(psubs[i].host.ID()))
+		senderID = senderID[len(senderID)-6:]
+		pmap[senderID] = i
+
 		wg.Add(1)
 		go func(i int, totalStatChan chan statGroup) {
 			var delay, hop, fanout IncrementalStats
@@ -269,7 +299,7 @@ func printStat(psubs []*PubSub) {
 			hop.units = "hops"
 			fanout.units = "nodes"
 
-			f, err := os.Open(fmt.Sprintf("./trace_out/tracer_%d.json", i))
+			f, err := os.Open(fmt.Sprintf("./trace_out_%s/tracer_%d.json", rtName, i))
 			if err != nil {
 				panic(err)
 			}
@@ -291,7 +321,11 @@ func printStat(psubs []*PubSub) {
 			}
 			fanout.Add(stats.fanout...)
 
+			delay.id = senderID
+			delay.seq = i
+
 			//fmt.Println("peer", i, "'s Stat")
+			//fmt.Println("multiple send: ", stats.multipleSend)
 			//fmt.Println("gmsg cnt:", stats.gmsg)
 			//fmt.Println("smsg cnt:", stats.smsg)
 			//fmt.Println("rmsg cnt:", stats.rmsg)
@@ -302,16 +336,16 @@ func printStat(psubs []*PubSub) {
 			//fmt.Println("hop:\n\t", hop)
 			//fmt.Println("fanout:\n\t", fanout)
 			//fmt.Println()
-			//fmt.Println(len(stats.visual.recv))
-			//drawTimePlot(stats.visual.recv, i)
-			//drawScatterPlot(stats.visual.recv, "recv", strconv.Itoa(i))
+			//fmt.Println(len(stats.visual.hit))
+			//drawTimePlot(stats.visual.hit, i)
+			//drawScatterPlot(stats.visual.hit, "hit", strconv.Itoa(i))
 			//drawScatterPlot(stats.visual.send, "send", strconv.Itoa(i))
 
 			totalStatChan <- statGroup{
 				gmsg: stats.gmsg, smsg: stats.smsg, rmsg: stats.rmsg, hmsg: len(stats.hmsg),
 				delay: delay, hop: hop, fanout: fanout,
 				dmsg: stats.dmsg, hitmsg: stats.hitmsg,
-				recv: stats.visual.recv, check: len(stats.visual.recv),
+				recv: stats.visual.hit, check: len(stats.visual.hit),
 			}
 			wg.Done()
 		}(i, totalStatChan)
@@ -334,6 +368,8 @@ func printStat(psubs []*PubSub) {
 		for k, v := range c.recv {
 			totalStat.recv[k] = append(totalStat.recv[k], v...)
 		}
+
+		heatmap = append(heatmap, c.delay)
 	}
 	checkerRecvPeers := 0
 	checkerMsgLen := 0
@@ -342,9 +378,16 @@ func printStat(psubs []*PubSub) {
 		checkerMsgLen += len(v)
 	}
 
-	fmt.Println("total recv data size with checkerMsgLen: ", checkerMsgLen)
+	sort.Slice(heatmap, func(i, j int) bool {
+		return heatmap[i].seq < heatmap[j].seq
+	})
+
+	//fmt.Println(heatmap)
+	//makeDataFrame(heatmap)
+
+	fmt.Println("total hit data size with checkerMsgLen: ", checkerMsgLen)
 	fmt.Println("total recved peers: ", len(totalStat.recv), checkerRecvPeers)
-	drawScatterPlot(totalStat.recv, "recv", "total")
+	drawScatterPlot(pmap, totalStat.recv, "hit", "total")
 
 	fmt.Println("total gmsg: ", totalStat.gmsg)
 	fmt.Println("total smsg: ", totalStat.smsg)
@@ -352,8 +395,8 @@ func printStat(psubs []*PubSub) {
 	fmt.Println("total hmsg: ", totalStat.hmsg)
 	fmt.Println("excepted hmsg: ", totalStat.gmsg*(len(psubs)-1))
 
-	fmt.Println("total dmsg", totalStat.dmsg)
-	fmt.Println("total hitmsg", totalStat.hitmsg)
+	fmt.Println("total dmsg: ", totalStat.dmsg)
+	fmt.Println("total hitmsg: ", totalStat.hitmsg)
 
 	//var coverage float64
 	coverage := float64(totalStat.hmsg) / (float64(totalStat.gmsg) * float64(len(psubs)-1))
@@ -369,7 +412,9 @@ func printStat(psubs []*PubSub) {
 	//calculateCoverage(totalGmsg, hmsgPerUnitTime, endTime, len(psubs))
 
 	fmt.Println("total Delay:\n\t", totalStat.delay)
+	//fmt.Println("delays: \n\t", totalStat.delay.slice)
 	fmt.Println("total Hop:\n\t", totalStat.hop)
+	//fmt.Println("hops: \n\t", totalStat.hop.slice)
 	fmt.Println("total Fanout:\n\t", totalStat.fanout)
 
 	delayMap := dupCounter(totalStat.delay.slice)
@@ -379,6 +424,8 @@ func printStat(psubs []*PubSub) {
 	hopMap := dupCounter(totalStat.hop.slice)
 	//fmt.Println(hopMap)
 	drawCoveragePlot(hopMap, totalStat.gmsg*(len(psubs)-1), "coverage_per_hop")
+
+	drawStackBar()
 }
 
 func dupCounter(list []int) map[int]int {
@@ -397,16 +444,14 @@ func dupCounter(list []int) map[int]int {
 	return counter
 }
 
-func drawScatterPlot(data map[string][]int64, dataMode string, peerNum string) {
+func drawScatterPlot(pmap map[string]int, data map[string][]int64, dataMode string, peerNum string) {
 	xValues := []float64{}
 	yValues := []float64{}
-	stringToIndex := make(map[string]float64)
-	i := 0
+	//stringToIndex := make(map[string]float64)
 	for k, v := range data {
-		i++
-		stringToIndex[k] = float64(i)
+		//stringToIndex[k] = float64(pmap[k])
 		for _, y := range v {
-			xValues = append(xValues, float64(i))
+			xValues = append(xValues, float64(pmap[k]))
 			yValues = append(yValues, float64(y))
 		}
 	}
@@ -431,10 +476,63 @@ func drawScatterPlot(data map[string][]int64, dataMode string, peerNum string) {
 		},
 	}
 
-	f, _ := os.Create(fmt.Sprintf("./visualization_%s/output_%s.png", dataMode, peerNum))
+	err := os.MkdirAll(fmt.Sprintf("./visualization_%s", dataMode), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	f, err := os.Create(fmt.Sprintf("./visualization_%s/output_%s.png", dataMode, peerNum))
+	if err != nil {
+		panic(err)
+	}
 	defer f.Close()
 
 	graph.Render(chart.PNG, f)
+}
+
+func drawStackBar() {
+	sbc := chart.StackedBarChart{
+		Title: "Redundancy Chart Each Algorithm",
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 40,
+			},
+		},
+		Height: 512,
+		Bars: []chart.StackedBar{
+			{
+				Name: "jammaxsub",
+				Values: []chart.Value{
+					{Value: 5.4622, Label: "Duplicated Msg"},
+					{Value: 1, Label: "Hit Msg"},
+				},
+			},
+			{
+				Name: "gossipsub",
+				Values: []chart.Value{
+					{Value: 4.9749, Label: "Duplicated Msg"},
+					{Value: 1, Label: "Hit Msg"},
+				},
+			},
+		},
+	}
+
+	err := os.MkdirAll(fmt.Sprintf("./visualization"), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	f, _ := os.Create("./visualization/redundancy_chart.png")
+	defer f.Close()
+
+	err = sbc.Render(chart.PNG, f)
+	if err != nil {
+		return
+	}
+}
+
+func makeDataFrame(data []IncrementalStats) {
+	df := dataframe.LoadStructs(data)
+	fmt.Println(df)
 }
 
 func drawTimePlot(data map[string][]int64, peerNum int) {

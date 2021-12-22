@@ -369,7 +369,7 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 	if rpc.GetJmpRPC() != nil {
 		var jmps []*pb.TraceEvent_JmpMeta
 		for _, j := range rpc.JmpRPC {
-			if len(j.JmpMsgs) != 0 {
+			if len(j.JmpMsgs) > 0 {
 				var jmpMsg []*pb.TraceEvent_JmpMeta_JmpMsgMeta
 				for _, m := range j.JmpMsgs {
 					jmpMsg = append(jmpMsg, &pb.TraceEvent_JmpMeta_JmpMsgMeta{
@@ -398,6 +398,7 @@ func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 			Topic:      m.Topic,
 			Hop:        &hops,
 			CreateTime: m.Createtime,
+			Fanout:     rpc.Fanout,
 		})
 	}
 	rpcMeta.Messages = msgs

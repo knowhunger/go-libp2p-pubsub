@@ -108,7 +108,12 @@ func getPubsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 
 func getPubsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSub {
 	var psubs []*PubSub
-	for _, h := range hs {
+	for i, h := range hs {
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_flood/tracer_%d.json", i))
+		if err != nil {
+			panic(err)
+		}
+		opts = append(opts, WithEventTracer(tracer))
 		psubs = append(psubs, getPubsub(ctx, h, opts...))
 	}
 	return psubs
@@ -138,7 +143,7 @@ func assertNeverReceives(t *testing.T, ch *Subscription, timeout time.Duration) 
 func TestBasicFloodsub(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 20)
+	hosts := getNetHosts(t, ctx, 50)
 
 	psubs := getPubsubs(ctx, hosts)
 
@@ -153,7 +158,8 @@ func TestBasicFloodsub(t *testing.T) {
 	}
 
 	//connectAll(t, hosts)
-	sparseConnect(t, hosts)
+	//sparseConnect(t, hosts)
+	connectSome(t, hosts, 20)
 
 	time.Sleep(time.Millisecond * 100)
 
@@ -175,6 +181,8 @@ func TestBasicFloodsub(t *testing.T) {
 		}
 	}
 
+	// print some statistics
+	printStat(psubs, "random")
 }
 
 func TestMultihops(t *testing.T) {

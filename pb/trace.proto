@@ -146,6 +146,7 @@ message TraceEvent {
 
     optional int64 hop = 3;
     optional int64 createTime = 4;
+    optional int64 fanout = 5;
   }
 
   message SubMeta {

@@ -1046,6 +1046,9 @@ func (gs *GossipSubRouter) Publish(msg *Message) {
 		if pid == from || pid == peer.ID(msg.GetFrom()) {
 			continue
 		}
+		// add mesh size in RPC
+		lenToSend := int64(len(tosend))
+		out.Fanout = &lenToSend
 
 		gs.sendRPC(pid, out)
 	}

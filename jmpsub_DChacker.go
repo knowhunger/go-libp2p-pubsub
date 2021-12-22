@@ -8,7 +8,7 @@ package pubsub
 //	jmpMap map[peer.ID]JamMaxPair
 //}
 //
-//func (jd *JmpDFliter) checkDuplicated(msg *JmpMessage) bool {
+//func (jd *JmpDFliter) isDuplicated(msg *JmpMessage) bool {
 //	mid := msg.mid
 //	jmp, ok := jd.jmpMap[mid.pid]
 //	if !ok {

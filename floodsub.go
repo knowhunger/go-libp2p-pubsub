@@ -74,6 +74,12 @@ func (fs *FloodSubRouter) AcceptFrom(peer.ID) AcceptStatus {
 func (fs *FloodSubRouter) HandleRPC(rpc *RPC) {}
 
 func (fs *FloodSubRouter) Publish(msg *Message) {
+	if fs.p.host.ID() != msg.GetFrom() && fs.p.host.ID() != msg.ReceivedFrom {
+		hop := msg.GetHop()
+		hop++
+		msg.Hop = &hop
+	}
+
 	from := msg.ReceivedFrom
 	topic := msg.GetTopic()
 

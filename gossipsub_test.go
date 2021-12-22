@@ -36,7 +36,7 @@ func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSu
 	var psubs []*PubSub
 	originOpts := opts
 	for i, h := range hs {
-		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out/tracer_%d.json", i))
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_gossip/tracer_%d.json", i))
 		if err != nil {
 			panic(err)
 		}
@@ -146,7 +146,7 @@ func TestSparseGossipsub(t *testing.T) {
 	fmt.Println(endTime)
 
 	// print some statistics
-	printStat(psubs)
+	printStat(psubs, "gossip")
 }
 
 func TestDenseGossipsub(t *testing.T) {
@@ -155,8 +155,8 @@ func TestDenseGossipsub(t *testing.T) {
 	//	GossipSubFanoutTTL = 60 * time.Second
 	//}()
 
-	numHosts := 10
-	numMsgs := 200
+	numHosts := 50
+	numMsgs := 100
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -187,12 +187,14 @@ func TestDenseGossipsub(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	for i := 0; i < numMsgs; i++ {
-		//fmt.Println("msg publish")
-		//time.Sleep(time.Millisecond * 100)
+		if i%10 == 0 {
+			fmt.Println(i, "'s msg publish")
+		}
+		time.Sleep(time.Millisecond * 100)
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
-		owner := rand.Intn(5)
-		//owner := rand.Intn(10)
+		//owner := rand.Intn(5)
+		owner := rand.Intn(len(psubs))
 		//owner = 0
 
 		err := topics[owner].Publish(ctx, msg)
@@ -211,7 +213,7 @@ func TestDenseGossipsub(t *testing.T) {
 		}
 	}
 
-	printStat(psubs)
+	printStat(psubs, "gossip")
 }
 
 func TestGossipsubFanout(t *testing.T) {
@@ -474,7 +476,7 @@ func TestGossipsubGossip(t *testing.T) {
 	// and wait for some sendRPC flushing
 	time.Sleep(time.Second * 2)
 
-	printStat(psubs)
+	printStat(psubs, "gossip")
 }
 
 func TestGossipsubGossipPiggyback(t *testing.T) {

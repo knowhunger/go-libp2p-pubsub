@@ -6,61 +6,62 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestShuffle(t *testing.T) {
-
-	type school struct {
-		name string
-	}
-	type st struct {
-		school
-		name string
-		age  int
-	}
-
-	cau := school{name: "CAU"}
-	psh := st{school: cau, name: "psh", age: 28}
-
-	fmt.Println(psh)
-}
-
-func BenchmarkSort(b *testing.B) {
+func BenchmarkShuffle(b *testing.B) {
 	a := []int{}
-	for i := 0; i < 20; i++ {
+	temp := []int{}
+	for i := 0; i < 30; i++ {
 		a = append(a, i)
 	}
 
 	for i := 0; i < b.N; i++ {
-		sort.Slice(a, func(i, j int) bool {
-			return a[i] < a[j]
-		})
+		temp = sp(a, 6)
 	}
+
+	fmt.Println(temp)
 }
-func BenchmarkSortAfterShuffle(b *testing.B) {
+
+func BenchmarkShuffleRemove(b *testing.B) {
 	a := []int{}
-	for i := 0; i < 40; i++ {
+	temp := []int{}
+	for i := 0; i < 30; i++ {
 		a = append(a, i)
-	}
-	shuffle := func(nums []int) {
-		for i := range nums {
-			j := rand.Intn(i + 1)
-			nums[i], nums[j] = nums[j], nums[i]
-		}
 	}
 
 	for i := 0; i < b.N; i++ {
-		shuffle(a)
-		sort.Slice(a, func(i, j int) bool {
-			return a[i] < a[j]
-		})
+		temp = spr(a, 6)
 	}
 
-	fmt.Println(a)
+	fmt.Println(temp)
+}
+
+func sp(s []int, l int) []int {
+	temp := []int{}
+	for _, v := range s {
+		temp = append(temp, v)
+	}
+	for i := range temp {
+		j := rand.Intn(i + 1)
+		temp[i], temp[j] = temp[j], temp[i]
+	}
+	return temp[:l]
+}
+
+func spr(s []int, l int) []int {
+	temp := []int{}
+	for _, v := range s {
+		temp = append(temp, v)
+	}
+	for len(temp) > l {
+		r := rand.Intn(len(temp))
+		temp[r] = temp[len(temp)-1]
+		temp = temp[:len(temp)-1]
+	}
+	return temp
 }
 
 func getJmpsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
@@ -75,7 +76,7 @@ func getJmpsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSub {
 	var psubs []*PubSub
 	originOpts := opts
 	for i, h := range hs {
-		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out/tracer_%d.json", i))
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_jmp/tracer_%d.json", i))
 		if err != nil {
 			panic(err)
 		}
@@ -90,8 +91,8 @@ func TestJmpPublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numHosts := 10
-	numMsgs := 5
+	numHosts := 50
+	numMsgs := 100
 
 	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getJmpsubs(ctx, hosts)
@@ -108,8 +109,8 @@ func TestJmpPublish(t *testing.T) {
 	}
 
 	// full connect
-	//connectAll(t, hosts)
-	connectSome(t, hosts, 20)
+	connectAll(t, hosts)
+	//connectSome(t, hosts, 20)
 	//denseConnect(t, hosts)
 	//sparseConnect(t, hosts)
 
@@ -122,19 +123,18 @@ func TestJmpPublish(t *testing.T) {
 
 	owners := make(map[int][]int)
 	for i := 0; i < numMsgs; i++ {
-		time.Sleep(time.Millisecond * 1000)
+		time.Sleep(time.Millisecond * 50)
+
 		if i%10 == 0 {
 			fmt.Println("publishing", i)
+			// time.Sleep(time.Millisecond * 1000)
 		}
-		fmt.Println()
-		fmt.Println()
-		fmt.Println()
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		//owner := i % len(psubs)
-		//owner := rand.Intn(len(psubs))
+		owner := rand.Intn(len(psubs))
 
-		owner := 0
+		//owner := 0
 		owners[owner] = append(owners[owner], i)
 
 		err := topics[owner].Publish(ctx, msg)
@@ -162,14 +162,14 @@ func TestJmpPublish(t *testing.T) {
 		//fmt.Println(ow, "sent a total of", len(msgNum), "msgs: \t", msgNum)
 
 		for i, ps := range psubs {
-			assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
 			var recvMsgs []string
 			for _, msg := range ps.rt.(*JmpSubRouter).history[psubs[ow].signID] {
 				stringMsg := strings.Split(string(msg.Data), " ")
 				recvMsgs = append(recvMsgs, stringMsg[0])
 			}
-			//fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
-			if len(recvMsgs) == 0 {
+			//fmt.Println("\tpeer", i, "hit a total of", len(recvMsgs), "msgs: \t", recvMsgs)
+			isRecvAll := assert.Equal(t, len(msgNum), len(ps.rt.(*JmpSubRouter).history[psubs[ow].signID]), fmt.Sprintf("%d peer msg loss", i))
+			if !isRecvAll {
 				fmt.Println("\tgossipJMP", ps.rt.(*JmpSubRouter).gossipJMP[psubs[ow].signID])
 				fmt.Println("\thistoryJMP", ps.rt.(*JmpSubRouter).historyJMP[psubs[ow].signID])
 			}
@@ -180,7 +180,7 @@ func TestJmpPublish(t *testing.T) {
 
 	//assert.Equal(t, sum, numMsgs, "total msg count is different")
 
-	printStat(psubs)
+	printStat(psubs, "jmp")
 }
 
 func TestJmpPublishJoinLater(t *testing.T) {
@@ -283,7 +283,7 @@ func TestJmpPublishJoinLater(t *testing.T) {
 				stringMsg := strings.Split(string(msg.Data), " ")
 				recvMsgs = append(recvMsgs, stringMsg[0])
 			}
-			fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
+			fmt.Println("\tpeer", i, "hit a total of", len(recvMsgs), "msgs: \t", recvMsgs)
 			if len(recvMsgs) == 0 {
 				fmt.Println("\tgossipJMP", ps.rt.(*JmpSubRouter).gossipJMP[psubs[ow].signID])
 				fmt.Println("\thistoryJMP", ps.rt.(*JmpSubRouter).historyJMP[psubs[ow].signID])
@@ -295,7 +295,7 @@ func TestJmpPublishJoinLater(t *testing.T) {
 
 	//assert.Equal(t, sum, numMsgs, "total msg count is different")
 
-	printStat(psubs)
+	printStat(psubs, "jmp")
 }
 
 func TestJmpFanoutBoundary(t *testing.T) {
@@ -367,7 +367,7 @@ func TestJmpFanoutBoundary(t *testing.T) {
 				stringMsg := strings.Split(string(msg.Data), " ")
 				recvMsgs = append(recvMsgs, stringMsg[0])
 			}
-			fmt.Println("\tpeer", i, "recv a total of", len(recvMsgs), "msgs: \t", recvMsgs)
+			fmt.Println("\tpeer", i, "hit a total of", len(recvMsgs), "msgs: \t", recvMsgs)
 			if len(recvMsgs) == 0 {
 				fmt.Println("\tgossipJMP", ps.rt.(*JmpSubRouter).gossipJMP[psubs[ow].signID])
 				fmt.Println("\thistoryJMP", ps.rt.(*JmpSubRouter).historyJMP[psubs[ow].signID])
@@ -379,5 +379,5 @@ func TestJmpFanoutBoundary(t *testing.T) {
 
 	//assert.Equal(t, sum, numMsgs, "total msg count is different")
 
-	printStat(psubs)
+	printStat(psubs, "jmp")
 }
