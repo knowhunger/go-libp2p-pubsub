@@ -125,7 +125,6 @@ type traceStats struct {
 }
 
 func (t *traceStats) process(evt *pb.TraceEvent) {
-	//fmt.Printf("process event %s\n", evt.GetType())
 	switch evt.GetType() {
 	case pb.TraceEvent_PUBLISH_MESSAGE:
 		t.publish++
@@ -302,8 +301,10 @@ func TestRemoteTracer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
-	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h1.Close()
+	defer h2.Close()
 
 	mrt := &mockRemoteTracer{}
 	h1.SetStreamHandler(RemoteTracerProtoID, mrt.handleStream)

@@ -12,17 +12,17 @@ import (
 // long as `history` slots.
 //
 // When queried for messages to advertise, the cache only returns messages in
-// the last `gossip` slots.
+// the last `sendRPC` slots.
 //
-// The `gossip` parameter must be smaller or equal to `history`, or this
+// The `sendRPC` parameter must be smaller or equal to `history`, or this
 // function will panic.
 //
-// The slack between `gossip` and `history` accounts for the reaction time
-// between when a message is advertised via IHAVE gossip, and the peer pulls it
+// The slack between `sendRPC` and `history` accounts for the reaction time
+// between when a message is advertised via IHAVE sendRPC, and the peer pulls it
 // via an IWANT command.
 func NewMessageCache(gossip, history int) *MessageCache {
 	if gossip > history {
-		err := fmt.Errorf("invalid parameters for message cache; gossip slots (%d) cannot be larger than history slots (%d)",
+		err := fmt.Errorf("invalid parameters for message cache; sendRPC slots (%d) cannot be larger than history slots (%d)",
 			gossip, history)
 		panic(err)
 	}
@@ -101,4 +101,16 @@ func (mc *MessageCache) Shift() {
 		mc.history[i+1] = mc.history[i]
 	}
 	mc.history[0] = nil
+}
+
+func (mc *MessageCache) GetAllMessagesID(topic string) []string {
+	var mids []string
+	for _, entries := range mc.history {
+		for _, entry := range entries {
+			if entry.topic == topic {
+				mids = append(mids, entry.mid)
+			}
+		}
+	}
+	return mids
 }

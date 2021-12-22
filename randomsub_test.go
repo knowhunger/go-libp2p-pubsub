@@ -19,7 +19,12 @@ func getRandomsub(ctx context.Context, h host.Host, size int, opts ...Option) *P
 
 func getRandomsubs(ctx context.Context, hs []host.Host, size int, opts ...Option) []*PubSub {
 	var psubs []*PubSub
-	for _, h := range hs {
+	for i, h := range hs {
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_random/tracer_%d.json", i))
+		if err != nil {
+			panic(err)
+		}
+		opts = append(opts, WithEventTracer(tracer))
 		psubs = append(psubs, getRandomsub(ctx, h, size, opts...))
 	}
 	return psubs
@@ -80,7 +85,7 @@ func TestRandomsubBig(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 50)
 	psubs := getRandomsubs(ctx, hosts, 50)
 
-	connectSome(t, hosts, 12)
+	connectSome(t, hosts, 20)
 
 	var subs []*Subscription
 	for _, ps := range psubs {
@@ -104,6 +109,9 @@ func TestRandomsubBig(t *testing.T) {
 			}
 		}
 	}
+
+	// print some statistics
+	printStat(psubs, "random")
 
 	if count < 7*len(hosts) {
 		t.Fatalf("received too few messages; expected at least %d but got %d", 9*len(hosts), count)

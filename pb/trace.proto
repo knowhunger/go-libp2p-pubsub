@@ -20,6 +20,7 @@ message TraceEvent {
   optional Leave leave = 14;
   optional Graft graft = 15;
   optional Prune prune = 16;
+  optional HitMessage hitMessage = 17;
 
   enum Type {
     PUBLISH_MESSAGE = 0;
@@ -35,6 +36,7 @@ message TraceEvent {
     LEAVE = 10;
     GRAFT = 11;
     PRUNE = 12;
+    HIT_MESSAGE = 13;
   }
 
   message PublishMessage {
@@ -103,15 +105,48 @@ message TraceEvent {
     optional string topic = 2;
   }
 
+  message HitMessage {
+    optional bytes receivedFrom = 1;
+    optional bytes messageID = 2;
+
+    optional string topic = 3;
+    optional int64 hop = 4;
+    optional int64 createTime = 5;
+  }
+
   message RPCMeta {
     repeated MessageMeta messages = 1;
     repeated SubMeta subscription = 2;
     optional ControlMeta control = 3;
+
+    repeated JmpMeta jmp = 4;
+  }
+
+  message JmpMeta {
+    message JmpMsgMeta {
+      optional MessageMeta msgBuf = 1;
+      optional int64 msgNumber = 2;
+    }
+
+    message JamMaxPairMeta {
+      optional int64 jam = 1;
+      optional int64 max = 2;
+    }
+
+    repeated JmpMsgMeta jmpMsgs = 1;
+    optional JamMaxPairMeta msgJamMaxPair = 2;
+    optional uint64 jmpMode = 3;
+    optional bytes source = 4;
+    optional int64 fanout = 5;
   }
 
   message MessageMeta {
     optional bytes messageID = 1;
     optional string topic = 2;
+
+    optional int64 hop = 3;
+    optional int64 createTime = 4;
+    optional int64 fanout = 5;
   }
 
   message SubMeta {

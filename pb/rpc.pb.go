@@ -26,6 +26,10 @@ type RPC struct {
 	Subscriptions        []*RPC_SubOpts  `protobuf:"bytes,1,rep,name=subscriptions" json:"subscriptions,omitempty"`
 	Publish              []*Message      `protobuf:"bytes,2,rep,name=publish" json:"publish,omitempty"`
 	Control              *ControlMessage `protobuf:"bytes,3,opt,name=control" json:"control,omitempty"`
+	JmpRPC               []*JmpRPC       `protobuf:"bytes,4,rep,name=jmpRPC" json:"jmpRPC,omitempty"`
+	JmpMode              *uint64         `protobuf:"varint,5,opt,name=jmpMode" json:"jmpMode,omitempty"`
+	Sender               []byte          `protobuf:"bytes,6,opt,name=sender" json:"sender,omitempty"`
+	Fanout               *int64          `protobuf:"varint,7,opt,name=fanout" json:"fanout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -85,6 +89,34 @@ func (m *RPC) GetControl() *ControlMessage {
 	return nil
 }
 
+func (m *RPC) GetJmpRPC() []*JmpRPC {
+	if m != nil {
+		return m.JmpRPC
+	}
+	return nil
+}
+
+func (m *RPC) GetJmpMode() uint64 {
+	if m != nil && m.JmpMode != nil {
+		return *m.JmpMode
+	}
+	return 0
+}
+
+func (m *RPC) GetSender() []byte {
+	if m != nil {
+		return m.Sender
+	}
+	return nil
+}
+
+func (m *RPC) GetFanout() int64 {
+	if m != nil && m.Fanout != nil {
+		return *m.Fanout
+	}
+	return 0
+}
+
 type RPC_SubOpts struct {
 	Subscribe            *bool    `protobuf:"varint,1,opt,name=subscribe" json:"subscribe,omitempty"`
 	Topicid              *string  `protobuf:"bytes,2,opt,name=topicid" json:"topicid,omitempty"`
@@ -140,6 +172,179 @@ func (m *RPC_SubOpts) GetTopicid() string {
 	return ""
 }
 
+type JmpRPC struct {
+	JmpMsgs              []*JmpRPC_JmpMsg   `protobuf:"bytes,1,rep,name=jmpMsgs" json:"jmpMsgs,omitempty"`
+	MsgJamMaxPair        *JmpRPC_JamMaxPair `protobuf:"bytes,2,opt,name=msgJamMaxPair" json:"msgJamMaxPair,omitempty"`
+	Source               []byte             `protobuf:"bytes,3,opt,name=source" json:"source,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *JmpRPC) Reset()         { *m = JmpRPC{} }
+func (m *JmpRPC) String() string { return proto.CompactTextString(m) }
+func (*JmpRPC) ProtoMessage()    {}
+func (*JmpRPC) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{1}
+}
+func (m *JmpRPC) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JmpRPC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JmpRPC.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JmpRPC) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JmpRPC.Merge(m, src)
+}
+func (m *JmpRPC) XXX_Size() int {
+	return m.Size()
+}
+func (m *JmpRPC) XXX_DiscardUnknown() {
+	xxx_messageInfo_JmpRPC.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JmpRPC proto.InternalMessageInfo
+
+func (m *JmpRPC) GetJmpMsgs() []*JmpRPC_JmpMsg {
+	if m != nil {
+		return m.JmpMsgs
+	}
+	return nil
+}
+
+func (m *JmpRPC) GetMsgJamMaxPair() *JmpRPC_JamMaxPair {
+	if m != nil {
+		return m.MsgJamMaxPair
+	}
+	return nil
+}
+
+func (m *JmpRPC) GetSource() []byte {
+	if m != nil {
+		return m.Source
+	}
+	return nil
+}
+
+type JmpRPC_JmpMsg struct {
+	MsgBuf               *Message `protobuf:"bytes,1,opt,name=msgBuf" json:"msgBuf,omitempty"`
+	MsgNumber            *int64   `protobuf:"varint,2,opt,name=msgNumber" json:"msgNumber,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *JmpRPC_JmpMsg) Reset()         { *m = JmpRPC_JmpMsg{} }
+func (m *JmpRPC_JmpMsg) String() string { return proto.CompactTextString(m) }
+func (*JmpRPC_JmpMsg) ProtoMessage()    {}
+func (*JmpRPC_JmpMsg) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{1, 0}
+}
+func (m *JmpRPC_JmpMsg) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JmpRPC_JmpMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JmpRPC_JmpMsg.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JmpRPC_JmpMsg) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JmpRPC_JmpMsg.Merge(m, src)
+}
+func (m *JmpRPC_JmpMsg) XXX_Size() int {
+	return m.Size()
+}
+func (m *JmpRPC_JmpMsg) XXX_DiscardUnknown() {
+	xxx_messageInfo_JmpRPC_JmpMsg.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JmpRPC_JmpMsg proto.InternalMessageInfo
+
+func (m *JmpRPC_JmpMsg) GetMsgBuf() *Message {
+	if m != nil {
+		return m.MsgBuf
+	}
+	return nil
+}
+
+func (m *JmpRPC_JmpMsg) GetMsgNumber() int64 {
+	if m != nil && m.MsgNumber != nil {
+		return *m.MsgNumber
+	}
+	return 0
+}
+
+type JmpRPC_JamMaxPair struct {
+	Jam                  *int64   `protobuf:"varint,1,opt,name=jam" json:"jam,omitempty"`
+	Max                  *int64   `protobuf:"varint,2,opt,name=max" json:"max,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *JmpRPC_JamMaxPair) Reset()         { *m = JmpRPC_JamMaxPair{} }
+func (m *JmpRPC_JamMaxPair) String() string { return proto.CompactTextString(m) }
+func (*JmpRPC_JamMaxPair) ProtoMessage()    {}
+func (*JmpRPC_JamMaxPair) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{1, 1}
+}
+func (m *JmpRPC_JamMaxPair) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JmpRPC_JamMaxPair) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JmpRPC_JamMaxPair.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JmpRPC_JamMaxPair) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JmpRPC_JamMaxPair.Merge(m, src)
+}
+func (m *JmpRPC_JamMaxPair) XXX_Size() int {
+	return m.Size()
+}
+func (m *JmpRPC_JamMaxPair) XXX_DiscardUnknown() {
+	xxx_messageInfo_JmpRPC_JamMaxPair.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JmpRPC_JamMaxPair proto.InternalMessageInfo
+
+func (m *JmpRPC_JamMaxPair) GetJam() int64 {
+	if m != nil && m.Jam != nil {
+		return *m.Jam
+	}
+	return 0
+}
+
+func (m *JmpRPC_JamMaxPair) GetMax() int64 {
+	if m != nil && m.Max != nil {
+		return *m.Max
+	}
+	return 0
+}
+
 type Message struct {
 	From                 []byte   `protobuf:"bytes,1,opt,name=from" json:"from,omitempty"`
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data" json:"data,omitempty"`
@@ -147,6 +352,9 @@ type Message struct {
 	Topic                *string  `protobuf:"bytes,4,opt,name=topic" json:"topic,omitempty"`
 	Signature            []byte   `protobuf:"bytes,5,opt,name=signature" json:"signature,omitempty"`
 	Key                  []byte   `protobuf:"bytes,6,opt,name=key" json:"key,omitempty"`
+	Hop                  *int64   `protobuf:"varint,7,opt,name=hop" json:"hop,omitempty"`
+	Createtime           *int64   `protobuf:"varint,8,opt,name=createtime" json:"createtime,omitempty"`
+	Num                  *int64   `protobuf:"varint,9,opt,name=num" json:"num,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -156,7 +364,7 @@ func (m *Message) Reset()         { *m = Message{} }
 func (m *Message) String() string { return proto.CompactTextString(m) }
 func (*Message) ProtoMessage()    {}
 func (*Message) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{1}
+	return fileDescriptor_77a6da22d6a3feb1, []int{2}
 }
 func (m *Message) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -227,6 +435,27 @@ func (m *Message) GetKey() []byte {
 	return nil
 }
 
+func (m *Message) GetHop() int64 {
+	if m != nil && m.Hop != nil {
+		return *m.Hop
+	}
+	return 0
+}
+
+func (m *Message) GetCreatetime() int64 {
+	if m != nil && m.Createtime != nil {
+		return *m.Createtime
+	}
+	return 0
+}
+
+func (m *Message) GetNum() int64 {
+	if m != nil && m.Num != nil {
+		return *m.Num
+	}
+	return 0
+}
+
 type ControlMessage struct {
 	Ihave                []*ControlIHave `protobuf:"bytes,1,rep,name=ihave" json:"ihave,omitempty"`
 	Iwant                []*ControlIWant `protobuf:"bytes,2,rep,name=iwant" json:"iwant,omitempty"`
@@ -241,7 +470,7 @@ func (m *ControlMessage) Reset()         { *m = ControlMessage{} }
 func (m *ControlMessage) String() string { return proto.CompactTextString(m) }
 func (*ControlMessage) ProtoMessage()    {}
 func (*ControlMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{2}
+	return fileDescriptor_77a6da22d6a3feb1, []int{3}
 }
 func (m *ControlMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -311,7 +540,7 @@ func (m *ControlIHave) Reset()         { *m = ControlIHave{} }
 func (m *ControlIHave) String() string { return proto.CompactTextString(m) }
 func (*ControlIHave) ProtoMessage()    {}
 func (*ControlIHave) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{3}
+	return fileDescriptor_77a6da22d6a3feb1, []int{4}
 }
 func (m *ControlIHave) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -366,7 +595,7 @@ func (m *ControlIWant) Reset()         { *m = ControlIWant{} }
 func (m *ControlIWant) String() string { return proto.CompactTextString(m) }
 func (*ControlIWant) ProtoMessage()    {}
 func (*ControlIWant) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{4}
+	return fileDescriptor_77a6da22d6a3feb1, []int{5}
 }
 func (m *ControlIWant) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -413,7 +642,7 @@ func (m *ControlGraft) Reset()         { *m = ControlGraft{} }
 func (m *ControlGraft) String() string { return proto.CompactTextString(m) }
 func (*ControlGraft) ProtoMessage()    {}
 func (*ControlGraft) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{5}
+	return fileDescriptor_77a6da22d6a3feb1, []int{6}
 }
 func (m *ControlGraft) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -462,7 +691,7 @@ func (m *ControlPrune) Reset()         { *m = ControlPrune{} }
 func (m *ControlPrune) String() string { return proto.CompactTextString(m) }
 func (*ControlPrune) ProtoMessage()    {}
 func (*ControlPrune) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{6}
+	return fileDescriptor_77a6da22d6a3feb1, []int{7}
 }
 func (m *ControlPrune) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -524,7 +753,7 @@ func (m *PeerInfo) Reset()         { *m = PeerInfo{} }
 func (m *PeerInfo) String() string { return proto.CompactTextString(m) }
 func (*PeerInfo) ProtoMessage()    {}
 func (*PeerInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{7}
+	return fileDescriptor_77a6da22d6a3feb1, []int{8}
 }
 func (m *PeerInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -570,6 +799,9 @@ func (m *PeerInfo) GetSignedPeerRecord() []byte {
 func init() {
 	proto.RegisterType((*RPC)(nil), "pubsub.pb.RPC")
 	proto.RegisterType((*RPC_SubOpts)(nil), "pubsub.pb.RPC.SubOpts")
+	proto.RegisterType((*JmpRPC)(nil), "pubsub.pb.JmpRPC")
+	proto.RegisterType((*JmpRPC_JmpMsg)(nil), "pubsub.pb.JmpRPC.JmpMsg")
+	proto.RegisterType((*JmpRPC_JamMaxPair)(nil), "pubsub.pb.JmpRPC.JamMaxPair")
 	proto.RegisterType((*Message)(nil), "pubsub.pb.Message")
 	proto.RegisterType((*ControlMessage)(nil), "pubsub.pb.ControlMessage")
 	proto.RegisterType((*ControlIHave)(nil), "pubsub.pb.ControlIHave")
@@ -582,37 +814,50 @@ func init() {
 func init() { proto.RegisterFile("rpc.proto", fileDescriptor_77a6da22d6a3feb1) }
 
 var fileDescriptor_77a6da22d6a3feb1 = []byte{
-	// 480 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0xc1, 0x8e, 0xd3, 0x3c,
-	0x10, 0xc7, 0xe5, 0x6d, 0xbb, 0xd9, 0xcc, 0xe6, 0xfb, 0xb4, 0x32, 0x68, 0x31, 0x08, 0x55, 0x55,
-	0x4e, 0x01, 0x41, 0x0e, 0xcb, 0x95, 0x0b, 0xb4, 0x12, 0x9b, 0x03, 0x50, 0x99, 0x03, 0x67, 0x27,
-	0x75, 0xba, 0xd1, 0x6e, 0x63, 0x63, 0x3b, 0x8b, 0x78, 0x08, 0xde, 0x8b, 0x03, 0x07, 0x1e, 0x01,
-	0xf5, 0xc6, 0x5b, 0x20, 0x3b, 0x4e, 0x9a, 0xa5, 0x94, 0x9b, 0xe7, 0xef, 0xdf, 0xcc, 0xfc, 0x3d,
-	0x1e, 0x08, 0x95, 0x2c, 0x52, 0xa9, 0x84, 0x11, 0x38, 0x94, 0x4d, 0xae, 0x9b, 0x3c, 0x95, 0x79,
-	0xfc, 0x0b, 0xc1, 0x88, 0x2e, 0xe7, 0xf8, 0x25, 0xfc, 0xa7, 0x9b, 0x5c, 0x17, 0xaa, 0x92, 0xa6,
-	0x12, 0xb5, 0x26, 0x68, 0x36, 0x4a, 0x4e, 0x2f, 0xce, 0xd3, 0x1e, 0x4d, 0xe9, 0x72, 0x9e, 0x7e,
-	0x68, 0xf2, 0xf7, 0xd2, 0x68, 0x7a, 0x17, 0xc6, 0xcf, 0x20, 0x90, 0x4d, 0x7e, 0x53, 0xe9, 0x2b,
-	0x72, 0xe4, 0xf2, 0xf0, 0x20, 0xef, 0x2d, 0xd7, 0x9a, 0xad, 0x39, 0xed, 0x10, 0xfc, 0x02, 0x82,
-	0x42, 0xd4, 0x46, 0x89, 0x1b, 0x32, 0x9a, 0xa1, 0xe4, 0xf4, 0xe2, 0xe1, 0x80, 0x9e, 0xb7, 0x37,
-	0x7d, 0x92, 0x27, 0x1f, 0xbd, 0x82, 0xc0, 0x37, 0xc7, 0x8f, 0x21, 0xf4, 0xed, 0x73, 0x4e, 0xd0,
-	0x0c, 0x25, 0x27, 0x74, 0x27, 0x60, 0x02, 0x81, 0x11, 0xb2, 0x2a, 0xaa, 0x15, 0x39, 0x9a, 0xa1,
-	0x24, 0xa4, 0x5d, 0x18, 0x7f, 0x45, 0x10, 0xf8, 0xba, 0x18, 0xc3, 0xb8, 0x54, 0x62, 0xe3, 0xd2,
-	0x23, 0xea, 0xce, 0x56, 0x5b, 0x31, 0xc3, 0x5c, 0x5a, 0x44, 0xdd, 0x19, 0xdf, 0x87, 0x89, 0xe6,
-	0x9f, 0x6a, 0xe1, 0x9c, 0x46, 0xb4, 0x0d, 0xac, 0xea, 0x8a, 0x92, 0xb1, 0xeb, 0xd0, 0x06, 0xce,
-	0x57, 0xb5, 0xae, 0x99, 0x69, 0x14, 0x27, 0x13, 0xc7, 0xef, 0x04, 0x7c, 0x06, 0xa3, 0x6b, 0xfe,
-	0x85, 0x1c, 0x3b, 0xdd, 0x1e, 0xe3, 0xef, 0x08, 0xfe, 0xbf, 0xfb, 0x5c, 0xfc, 0x1c, 0x26, 0xd5,
-	0x15, 0xbb, 0xe5, 0x7e, 0xfc, 0x0f, 0xf6, 0x07, 0x93, 0x5d, 0xb2, 0x5b, 0x4e, 0x5b, 0xca, 0xe1,
-	0x9f, 0x59, 0x6d, 0xfc, 0xd4, 0xff, 0x86, 0x7f, 0x64, 0xb5, 0xa1, 0x2d, 0x65, 0xf1, 0xb5, 0x62,
-	0xa5, 0x21, 0xa3, 0x43, 0xf8, 0x1b, 0x7b, 0x4d, 0x5b, 0xca, 0xe2, 0x52, 0x35, 0x35, 0x27, 0xe3,
-	0x43, 0xf8, 0xd2, 0x5e, 0xd3, 0x96, 0x8a, 0x2f, 0x21, 0x1a, 0x7a, 0xec, 0x3f, 0x22, 0x5b, 0xb8,
-	0x29, 0x77, 0x1f, 0x91, 0x2d, 0xf0, 0x14, 0x60, 0xd3, 0x3e, 0x38, 0x5b, 0x68, 0xe7, 0x3d, 0xa4,
-	0x03, 0x25, 0x4e, 0x77, 0x95, 0xac, 0xfd, 0x3f, 0x78, 0xb4, 0xc7, 0x27, 0x3d, 0xef, 0xfc, 0x1f,
-	0xee, 0x1c, 0x6f, 0x7a, 0xd2, 0x59, 0xff, 0x87, 0xc7, 0x27, 0x30, 0x91, 0x9c, 0x2b, 0xed, 0x47,
-	0x7b, 0x6f, 0xf0, 0xf8, 0x25, 0xe7, 0x2a, 0xab, 0x4b, 0x41, 0x5b, 0xc2, 0x16, 0xc9, 0x59, 0x71,
-	0x2d, 0xca, 0xd2, 0x6d, 0xc9, 0x98, 0x76, 0x61, 0xfc, 0x0e, 0x4e, 0x3a, 0x18, 0x9f, 0xc3, 0xb1,
-	0xc5, 0x7d, 0xa7, 0x88, 0xfa, 0x08, 0x3f, 0x85, 0x33, 0xbb, 0x24, 0x7c, 0x65, 0x49, 0xca, 0x0b,
-	0xa1, 0x56, 0x7e, 0x03, 0xf7, 0xf4, 0xd7, 0xd1, 0xb7, 0xed, 0x14, 0xfd, 0xd8, 0x4e, 0xd1, 0xcf,
-	0xed, 0x14, 0xfd, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xb2, 0xf8, 0xc4, 0x6e, 0xd2, 0x03, 0x00, 0x00,
+	// 684 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x93, 0xcd, 0x6e, 0xdb, 0x38,
+	0x10, 0xc7, 0x21, 0xcb, 0x1f, 0x31, 0xe3, 0x2c, 0xb2, 0xdc, 0x45, 0x96, 0x1b, 0x04, 0x86, 0xa1,
+	0x93, 0x12, 0xb4, 0x46, 0xe1, 0x5e, 0x7b, 0x69, 0x1c, 0xa0, 0x71, 0x00, 0xa7, 0xc6, 0xf4, 0xd0,
+	0x33, 0x25, 0x53, 0x8a, 0x92, 0x50, 0x54, 0x49, 0x29, 0x4d, 0x5f, 0xa6, 0xcf, 0xd3, 0x43, 0x0f,
+	0xed, 0x0b, 0x14, 0x45, 0x9e, 0xa4, 0xe0, 0x87, 0x6c, 0xa5, 0x76, 0x7a, 0xd2, 0xcc, 0xf0, 0x37,
+	0x9c, 0xff, 0x0c, 0x47, 0xa8, 0x2f, 0x8b, 0x78, 0x5c, 0x48, 0x51, 0x0a, 0xdc, 0x2f, 0xaa, 0x48,
+	0x55, 0xd1, 0xb8, 0x88, 0x82, 0x1f, 0x2d, 0xe4, 0xc3, 0x62, 0x8a, 0x5f, 0xa1, 0x3d, 0x55, 0x45,
+	0x2a, 0x96, 0x59, 0x51, 0x66, 0x22, 0x57, 0xc4, 0x1b, 0xf9, 0xe1, 0xee, 0xe4, 0x60, 0xbc, 0x42,
+	0xc7, 0xb0, 0x98, 0x8e, 0xdf, 0x55, 0xd1, 0xdb, 0xa2, 0x54, 0xf0, 0x18, 0xc6, 0xcf, 0x50, 0xaf,
+	0xa8, 0xa2, 0xdb, 0x4c, 0x5d, 0x91, 0x96, 0xc9, 0xc3, 0x8d, 0xbc, 0x39, 0x53, 0x8a, 0xa6, 0x0c,
+	0x6a, 0x04, 0xbf, 0x44, 0xbd, 0x58, 0xe4, 0xa5, 0x14, 0xb7, 0xc4, 0x1f, 0x79, 0xe1, 0xee, 0xe4,
+	0xff, 0x06, 0x3d, 0xb5, 0x27, 0xab, 0x24, 0x47, 0xe2, 0x63, 0xd4, 0xbd, 0xe6, 0x05, 0x2c, 0xa6,
+	0xa4, 0x6d, 0x2a, 0xfc, 0xdd, 0xc8, 0xb9, 0x30, 0x07, 0xe0, 0x00, 0x4c, 0x50, 0xef, 0x9a, 0x17,
+	0x73, 0xb1, 0x64, 0xa4, 0x33, 0xf2, 0xc2, 0x36, 0xd4, 0x2e, 0x3e, 0x40, 0x5d, 0xc5, 0xf2, 0x25,
+	0x93, 0xa4, 0x3b, 0xf2, 0xc2, 0x01, 0x38, 0x4f, 0xc7, 0x13, 0x9a, 0x8b, 0xaa, 0x24, 0xbd, 0x91,
+	0x17, 0xfa, 0xe0, 0xbc, 0xc3, 0xd7, 0xa8, 0xe7, 0x3a, 0xc6, 0x47, 0xa8, 0xef, 0x7a, 0x8e, 0x18,
+	0xf1, 0x46, 0x5e, 0xb8, 0x03, 0xeb, 0x80, 0x2e, 0x59, 0x8a, 0x22, 0x8b, 0xb3, 0x25, 0x69, 0x8d,
+	0xbc, 0xb0, 0x0f, 0xb5, 0x1b, 0x7c, 0x6e, 0xa1, 0xae, 0xd5, 0x87, 0x27, 0x56, 0x97, 0x4a, 0xeb,
+	0xe9, 0x92, 0x8d, 0x1e, 0xf4, 0x67, 0xae, 0x52, 0xa8, 0x41, 0x7c, 0x8a, 0xf6, 0xb8, 0x4a, 0x2f,
+	0x28, 0x9f, 0xd3, 0xfb, 0x05, 0xcd, 0xa4, 0xb9, 0x7e, 0x77, 0x72, 0xb4, 0x25, 0x73, 0xc5, 0xc0,
+	0xe3, 0x14, 0xd3, 0xb5, 0xa8, 0x64, 0xcc, 0xcc, 0xb8, 0x75, 0xd7, 0xc6, 0x3b, 0x04, 0xa3, 0x6c,
+	0xae, 0x52, 0x7c, 0x82, 0xba, 0x5c, 0xa5, 0xa7, 0x55, 0x62, 0x3a, 0xdb, 0xfe, 0x7c, 0x8e, 0xd0,
+	0x83, 0xe0, 0x2a, 0xbd, 0xac, 0x78, 0xc4, 0xac, 0x1a, 0x1f, 0xd6, 0x81, 0xc3, 0x17, 0x08, 0x35,
+	0x2a, 0xef, 0x23, 0xff, 0x9a, 0x72, 0x73, 0xa9, 0x0f, 0xda, 0xd4, 0x11, 0x4e, 0xef, 0x5d, 0x9e,
+	0x36, 0x83, 0xef, 0x1e, 0xea, 0xb9, 0x1a, 0x18, 0xa3, 0x76, 0x22, 0x85, 0x4d, 0x18, 0x80, 0xb1,
+	0x75, 0x6c, 0x49, 0x4b, 0x6a, 0x52, 0x06, 0x60, 0x6c, 0xfc, 0x2f, 0xea, 0x28, 0xf6, 0x21, 0x17,
+	0xae, 0x21, 0xeb, 0xe8, 0xa8, 0x99, 0x3a, 0x69, 0x9b, 0x27, 0xb0, 0x8e, 0x79, 0xb8, 0x2c, 0xcd,
+	0x69, 0x59, 0x49, 0xbb, 0x0f, 0x03, 0x58, 0x07, 0xb4, 0x9e, 0x1b, 0xf6, 0xc9, 0xad, 0x83, 0x36,
+	0x75, 0xe4, 0x4a, 0x14, 0x6e, 0x11, 0xb4, 0x89, 0x87, 0x08, 0xc5, 0x92, 0xd1, 0x92, 0x95, 0x19,
+	0x67, 0x64, 0xc7, 0x1c, 0x34, 0x22, 0x3a, 0x23, 0xaf, 0x38, 0xe9, 0xdb, 0x8c, 0xbc, 0xe2, 0xc1,
+	0x57, 0x0f, 0xfd, 0xf5, 0x78, 0x91, 0xf1, 0x73, 0xd4, 0xc9, 0xae, 0xe8, 0x1d, 0x73, 0x4f, 0xff,
+	0xdf, 0xe6, 0xca, 0xcf, 0xce, 0xe9, 0x1d, 0x03, 0x4b, 0x19, 0xfc, 0x23, 0xcd, 0x4b, 0xf7, 0x3f,
+	0x6d, 0xc3, 0xdf, 0xd3, 0xbc, 0x04, 0x4b, 0x69, 0x3c, 0x95, 0x34, 0x29, 0x89, 0xff, 0x14, 0xfe,
+	0x46, 0x1f, 0x83, 0xa5, 0x34, 0x5e, 0xc8, 0x2a, 0x67, 0xee, 0x5f, 0xda, 0x82, 0x2f, 0xf4, 0x31,
+	0x58, 0x2a, 0x38, 0x47, 0x83, 0xa6, 0xc6, 0xd5, 0xb6, 0xcf, 0xce, 0xcc, 0x4b, 0xd5, 0xdb, 0x3e,
+	0x3b, 0xd3, 0xa3, 0xe2, 0xb6, 0xe1, 0xd9, 0x99, 0x32, 0xda, 0xfb, 0xd0, 0x88, 0x04, 0xe3, 0xf5,
+	0x4d, 0x5a, 0xfe, 0x6f, 0xbc, 0xb7, 0xc1, 0x87, 0x2b, 0xde, 0xe8, 0x7f, 0xba, 0x72, 0xc0, 0x57,
+	0xa4, 0x91, 0xfe, 0x07, 0x8d, 0xc7, 0xa8, 0x53, 0x30, 0x26, 0x95, 0x1b, 0xed, 0x3f, 0x8d, 0xe6,
+	0x17, 0x8c, 0xc9, 0x59, 0x9e, 0x08, 0xb0, 0x84, 0xbe, 0x24, 0xa2, 0xf1, 0x8d, 0x48, 0x12, 0xb3,
+	0x69, 0x6d, 0xa8, 0xdd, 0xe0, 0x12, 0xed, 0xd4, 0xb0, 0xfe, 0xbf, 0x34, 0xee, 0x2a, 0x0d, 0xc0,
+	0x79, 0xf8, 0x04, 0xed, 0xeb, 0x45, 0x63, 0x4b, 0x4d, 0x02, 0x8b, 0x85, 0x5c, 0xba, 0x2d, 0xde,
+	0x88, 0x9f, 0x0e, 0xbe, 0x3c, 0x0c, 0xbd, 0x6f, 0x0f, 0x43, 0xef, 0xe7, 0xc3, 0xd0, 0xfb, 0x15,
+	0x00, 0x00, 0xff, 0xff, 0x8d, 0x8f, 0xc8, 0x81, 0xac, 0x05, 0x00, 0x00,
 }
 
 func (m *RPC) Marshal() (dAtA []byte, err error) {
@@ -638,6 +883,37 @@ func (m *RPC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Fanout != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Fanout))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.Sender != nil {
+		i -= len(m.Sender)
+		copy(dAtA[i:], m.Sender)
+		i = encodeVarintRpc(dAtA, i, uint64(len(m.Sender)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.JmpMode != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.JmpMode))
+		i--
+		dAtA[i] = 0x28
+	}
+	if len(m.JmpRPC) > 0 {
+		for iNdEx := len(m.JmpRPC) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.JmpRPC[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintRpc(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
 	}
 	if m.Control != nil {
 		{
@@ -726,6 +1002,147 @@ func (m *RPC_SubOpts) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *JmpRPC) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JmpRPC) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JmpRPC) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Source != nil {
+		i -= len(m.Source)
+		copy(dAtA[i:], m.Source)
+		i = encodeVarintRpc(dAtA, i, uint64(len(m.Source)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.MsgJamMaxPair != nil {
+		{
+			size, err := m.MsgJamMaxPair.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintRpc(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.JmpMsgs) > 0 {
+		for iNdEx := len(m.JmpMsgs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.JmpMsgs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintRpc(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *JmpRPC_JmpMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JmpRPC_JmpMsg) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JmpRPC_JmpMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.MsgNumber != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.MsgNumber))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.MsgBuf != nil {
+		{
+			size, err := m.MsgBuf.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintRpc(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *JmpRPC_JamMaxPair) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JmpRPC_JamMaxPair) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JmpRPC_JamMaxPair) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Max != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Max))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Jam != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Jam))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Message) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -749,6 +1166,21 @@ func (m *Message) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Num != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Num))
+		i--
+		dAtA[i] = 0x48
+	}
+	if m.Createtime != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Createtime))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.Hop != nil {
+		i = encodeVarintRpc(dAtA, i, uint64(*m.Hop))
+		i--
+		dAtA[i] = 0x38
 	}
 	if m.Key != nil {
 		i -= len(m.Key)
@@ -1118,6 +1550,22 @@ func (m *RPC) Size() (n int) {
 		l = m.Control.Size()
 		n += 1 + l + sovRpc(uint64(l))
 	}
+	if len(m.JmpRPC) > 0 {
+		for _, e := range m.JmpRPC {
+			l = e.Size()
+			n += 1 + l + sovRpc(uint64(l))
+		}
+	}
+	if m.JmpMode != nil {
+		n += 1 + sovRpc(uint64(*m.JmpMode))
+	}
+	if m.Sender != nil {
+		l = len(m.Sender)
+		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.Fanout != nil {
+		n += 1 + sovRpc(uint64(*m.Fanout))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1136,6 +1584,69 @@ func (m *RPC_SubOpts) Size() (n int) {
 	if m.Topicid != nil {
 		l = len(*m.Topicid)
 		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *JmpRPC) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.JmpMsgs) > 0 {
+		for _, e := range m.JmpMsgs {
+			l = e.Size()
+			n += 1 + l + sovRpc(uint64(l))
+		}
+	}
+	if m.MsgJamMaxPair != nil {
+		l = m.MsgJamMaxPair.Size()
+		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.Source != nil {
+		l = len(m.Source)
+		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *JmpRPC_JmpMsg) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.MsgBuf != nil {
+		l = m.MsgBuf.Size()
+		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.MsgNumber != nil {
+		n += 1 + sovRpc(uint64(*m.MsgNumber))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *JmpRPC_JamMaxPair) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Jam != nil {
+		n += 1 + sovRpc(uint64(*m.Jam))
+	}
+	if m.Max != nil {
+		n += 1 + sovRpc(uint64(*m.Max))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1172,6 +1683,15 @@ func (m *Message) Size() (n int) {
 	if m.Key != nil {
 		l = len(m.Key)
 		n += 1 + l + sovRpc(uint64(l))
+	}
+	if m.Hop != nil {
+		n += 1 + sovRpc(uint64(*m.Hop))
+	}
+	if m.Createtime != nil {
+		n += 1 + sovRpc(uint64(*m.Createtime))
+	}
+	if m.Num != nil {
+		n += 1 + sovRpc(uint64(*m.Num))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1455,6 +1975,114 @@ func (m *RPC) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JmpRPC", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.JmpRPC = append(m.JmpRPC, &JmpRPC{})
+			if err := m.JmpRPC[len(m.JmpRPC)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JmpMode", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.JmpMode = &v
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Sender = append(m.Sender[:0], dAtA[iNdEx:postIndex]...)
+			if m.Sender == nil {
+				m.Sender = []byte{}
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fanout", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Fanout = &v
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])
@@ -1560,6 +2188,359 @@ func (m *RPC_SubOpts) Unmarshal(dAtA []byte) error {
 			s := string(dAtA[iNdEx:postIndex])
 			m.Topicid = &s
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JmpRPC) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JmpRPC: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JmpRPC: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JmpMsgs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.JmpMsgs = append(m.JmpMsgs, &JmpRPC_JmpMsg{})
+			if err := m.JmpMsgs[len(m.JmpMsgs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgJamMaxPair", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.MsgJamMaxPair == nil {
+				m.MsgJamMaxPair = &JmpRPC_JamMaxPair{}
+			}
+			if err := m.MsgJamMaxPair.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Source = append(m.Source[:0], dAtA[iNdEx:postIndex]...)
+			if m.Source == nil {
+				m.Source = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JmpRPC_JmpMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JmpMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JmpMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgBuf", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.MsgBuf == nil {
+				m.MsgBuf = &Message{}
+			}
+			if err := m.MsgBuf.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgNumber", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.MsgNumber = &v
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JmpRPC_JamMaxPair) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JamMaxPair: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JamMaxPair: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Jam", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Jam = &v
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Max", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Max = &v
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])
@@ -1814,6 +2795,66 @@ func (m *Message) Unmarshal(dAtA []byte) error {
 				m.Key = []byte{}
 			}
 			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hop", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Hop = &v
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Createtime", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Createtime = &v
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Num", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Num = &v
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])

@@ -163,6 +163,32 @@ func (t *pubsubTracer) DuplicateMessage(msg *Message) {
 	t.tracer.Trace(evt)
 }
 
+func (t *pubsubTracer) HitMessage(msg *Message) {
+	if t == nil {
+		return
+	}
+
+	if t.tracer == nil {
+		return
+	}
+
+	now := time.Now().UnixNano()
+	evt := &pb.TraceEvent{
+		Type:      pb.TraceEvent_HIT_MESSAGE.Enum(),
+		PeerID:    []byte(t.pid),
+		Timestamp: &now,
+		HitMessage: &pb.TraceEvent_HitMessage{
+			MessageID:    []byte(t.msgID(msg.Message)),
+			ReceivedFrom: []byte(msg.ReceivedFrom),
+			Topic:        msg.Topic,
+			Hop:          msg.Hop,
+			CreateTime:   msg.Createtime,
+		},
+	}
+
+	t.tracer.Trace(evt)
+}
+
 func (t *pubsubTracer) DeliverMessage(msg *Message) {
 	if t == nil {
 		return
@@ -297,7 +323,6 @@ func (t *pubsubTracer) SendRPC(rpc *RPC, p peer.ID) {
 			Meta:   t.traceRPCMeta(rpc),
 		},
 	}
-
 	t.tracer.Trace(evt)
 }
 
@@ -341,11 +366,39 @@ func (t *pubsubTracer) UndeliverableMessage(msg *Message) {
 func (t *pubsubTracer) traceRPCMeta(rpc *RPC) *pb.TraceEvent_RPCMeta {
 	rpcMeta := new(pb.TraceEvent_RPCMeta)
 
+	if rpc.GetJmpRPC() != nil {
+		var jmps []*pb.TraceEvent_JmpMeta
+		for _, j := range rpc.JmpRPC {
+			if len(j.JmpMsgs) > 0 {
+				var jmpMsg []*pb.TraceEvent_JmpMeta_JmpMsgMeta
+				for _, m := range j.JmpMsgs {
+					jmpMsg = append(jmpMsg, &pb.TraceEvent_JmpMeta_JmpMsgMeta{
+						MsgNumber: m.MsgNumber,
+					})
+				}
+				jmps = append(jmps, &pb.TraceEvent_JmpMeta{
+					Fanout:  rpc.Fanout,
+					JmpMsgs: jmpMsg,
+					JmpMode: rpc.JmpMode,
+					MsgJamMaxPair: &pb.TraceEvent_JmpMeta_JamMaxPairMeta{
+						Jam: j.MsgJamMaxPair.Jam,
+						Max: j.MsgJamMaxPair.Max,
+					},
+				})
+			}
+		}
+		rpcMeta.Jmp = jmps
+	}
+
 	var msgs []*pb.TraceEvent_MessageMeta
 	for _, m := range rpc.Publish {
+		hops := m.GetHop() + int64(1)
 		msgs = append(msgs, &pb.TraceEvent_MessageMeta{
-			MessageID: []byte(t.msgID(m)),
-			Topic:     m.Topic,
+			MessageID:  []byte(t.msgID(m)),
+			Topic:      m.Topic,
+			Hop:        &hops,
+			CreateTime: m.Createtime,
+			Fanout:     rpc.Fanout,
 		})
 	}
 	rpcMeta.Messages = msgs

@@ -46,8 +46,9 @@ func getNetHosts(t *testing.T, ctx context.Context, n int) []host.Host {
 	var out []host.Host
 
 	for i := 0; i < n; i++ {
-		netw := swarmt.GenSwarm(t, ctx)
+		netw := swarmt.GenSwarm(t)
 		h := bhost.NewBlankHost(netw)
+		t.Cleanup(func() { h.Close() })
 		out = append(out, h)
 	}
 
@@ -108,7 +109,12 @@ func getPubsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 
 func getPubsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSub {
 	var psubs []*PubSub
-	for _, h := range hs {
+	for i, h := range hs {
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_flood/tracer_%d.json", i))
+		if err != nil {
+			panic(err)
+		}
+		opts = append(opts, WithEventTracer(tracer))
 		psubs = append(psubs, getPubsub(ctx, h, opts...))
 	}
 	return psubs
@@ -126,10 +132,19 @@ func assertReceive(t *testing.T, ch *Subscription, exp []byte) {
 	}
 }
 
+func assertNeverReceives(t *testing.T, ch *Subscription, timeout time.Duration) {
+	select {
+	case msg := <-ch.ch:
+		t.Logf("%#v\n", ch)
+		t.Fatal("got unexpected message: ", string(msg.GetData()))
+	case <-time.After(timeout):
+	}
+}
+
 func TestBasicFloodsub(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 20)
+	hosts := getNetHosts(t, ctx, 50)
 
 	psubs := getPubsubs(ctx, hosts)
 
@@ -144,7 +159,8 @@ func TestBasicFloodsub(t *testing.T) {
 	}
 
 	//connectAll(t, hosts)
-	sparseConnect(t, hosts)
+	//sparseConnect(t, hosts)
+	connectSome(t, hosts, 20)
 
 	time.Sleep(time.Millisecond * 100)
 
@@ -166,6 +182,8 @@ func TestBasicFloodsub(t *testing.T) {
 		}
 	}
 
+	// print some statistics
+	printStat(psubs, "random")
 }
 
 func TestMultihops(t *testing.T) {
@@ -1131,7 +1149,8 @@ func TestWithInvalidMessageAuthor(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h.Close()
 	_, err := NewFloodSub(ctx, h, WithMessageAuthor("bogotr0n"))
 	if err == nil {
 		t.Fatal("expected error")
@@ -1146,8 +1165,10 @@ func TestPreconnectedNodes(t *testing.T) {
 	defer cancel()
 
 	// Create hosts
-	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
-	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h1.Close()
+	defer h2.Close()
 
 	opts := []Option{WithDiscovery(&dummyDiscovery{})}
 	// Setup first PubSub
@@ -1205,8 +1226,10 @@ func TestDedupInboundStreams(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
-	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h1 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	h2 := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h1.Close()
+	defer h2.Close()
 
 	_, err := NewFloodSub(ctx, h1)
 	if err != nil {

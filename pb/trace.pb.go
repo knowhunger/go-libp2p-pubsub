@@ -38,6 +38,7 @@ const (
 	TraceEvent_LEAVE             TraceEvent_Type = 10
 	TraceEvent_GRAFT             TraceEvent_Type = 11
 	TraceEvent_PRUNE             TraceEvent_Type = 12
+	TraceEvent_HIT_MESSAGE       TraceEvent_Type = 13
 )
 
 var TraceEvent_Type_name = map[int32]string{
@@ -54,6 +55,7 @@ var TraceEvent_Type_name = map[int32]string{
 	10: "LEAVE",
 	11: "GRAFT",
 	12: "PRUNE",
+	13: "HIT_MESSAGE",
 }
 
 var TraceEvent_Type_value = map[string]int32{
@@ -70,6 +72,7 @@ var TraceEvent_Type_value = map[string]int32{
 	"LEAVE":             10,
 	"GRAFT":             11,
 	"PRUNE":             12,
+	"HIT_MESSAGE":       13,
 }
 
 func (x TraceEvent_Type) Enum() *TraceEvent_Type {
@@ -112,6 +115,7 @@ type TraceEvent struct {
 	Leave                *TraceEvent_Leave            `protobuf:"bytes,14,opt,name=leave" json:"leave,omitempty"`
 	Graft                *TraceEvent_Graft            `protobuf:"bytes,15,opt,name=graft" json:"graft,omitempty"`
 	Prune                *TraceEvent_Prune            `protobuf:"bytes,16,opt,name=prune" json:"prune,omitempty"`
+	HitMessage           *TraceEvent_HitMessage       `protobuf:"bytes,17,opt,name=hitMessage" json:"hitMessage,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -258,6 +262,13 @@ func (m *TraceEvent) GetGraft() *TraceEvent_Graft {
 func (m *TraceEvent) GetPrune() *TraceEvent_Prune {
 	if m != nil {
 		return m.Prune
+	}
+	return nil
+}
+
+func (m *TraceEvent) GetHitMessage() *TraceEvent_HitMessage {
+	if m != nil {
+		return m.HitMessage
 	}
 	return nil
 }
@@ -985,10 +996,90 @@ func (m *TraceEvent_Prune) GetTopic() string {
 	return ""
 }
 
+type TraceEvent_HitMessage struct {
+	ReceivedFrom         []byte   `protobuf:"bytes,1,opt,name=receivedFrom" json:"receivedFrom,omitempty"`
+	MessageID            []byte   `protobuf:"bytes,2,opt,name=messageID" json:"messageID,omitempty"`
+	Topic                *string  `protobuf:"bytes,3,opt,name=topic" json:"topic,omitempty"`
+	Hop                  *int64   `protobuf:"varint,4,opt,name=hop" json:"hop,omitempty"`
+	CreateTime           *int64   `protobuf:"varint,5,opt,name=createTime" json:"createTime,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TraceEvent_HitMessage) Reset()         { *m = TraceEvent_HitMessage{} }
+func (m *TraceEvent_HitMessage) String() string { return proto.CompactTextString(m) }
+func (*TraceEvent_HitMessage) ProtoMessage()    {}
+func (*TraceEvent_HitMessage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0571941a1d628a80, []int{0, 13}
+}
+func (m *TraceEvent_HitMessage) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TraceEvent_HitMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TraceEvent_HitMessage.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TraceEvent_HitMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceEvent_HitMessage.Merge(m, src)
+}
+func (m *TraceEvent_HitMessage) XXX_Size() int {
+	return m.Size()
+}
+func (m *TraceEvent_HitMessage) XXX_DiscardUnknown() {
+	xxx_messageInfo_TraceEvent_HitMessage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TraceEvent_HitMessage proto.InternalMessageInfo
+
+func (m *TraceEvent_HitMessage) GetReceivedFrom() []byte {
+	if m != nil {
+		return m.ReceivedFrom
+	}
+	return nil
+}
+
+func (m *TraceEvent_HitMessage) GetMessageID() []byte {
+	if m != nil {
+		return m.MessageID
+	}
+	return nil
+}
+
+func (m *TraceEvent_HitMessage) GetTopic() string {
+	if m != nil && m.Topic != nil {
+		return *m.Topic
+	}
+	return ""
+}
+
+func (m *TraceEvent_HitMessage) GetHop() int64 {
+	if m != nil && m.Hop != nil {
+		return *m.Hop
+	}
+	return 0
+}
+
+func (m *TraceEvent_HitMessage) GetCreateTime() int64 {
+	if m != nil && m.CreateTime != nil {
+		return *m.CreateTime
+	}
+	return 0
+}
+
 type TraceEvent_RPCMeta struct {
 	Messages             []*TraceEvent_MessageMeta `protobuf:"bytes,1,rep,name=messages" json:"messages,omitempty"`
 	Subscription         []*TraceEvent_SubMeta     `protobuf:"bytes,2,rep,name=subscription" json:"subscription,omitempty"`
 	Control              *TraceEvent_ControlMeta   `protobuf:"bytes,3,opt,name=control" json:"control,omitempty"`
+	Jmp                  []*TraceEvent_JmpMeta     `protobuf:"bytes,4,rep,name=jmp" json:"jmp,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -998,7 +1089,7 @@ func (m *TraceEvent_RPCMeta) Reset()         { *m = TraceEvent_RPCMeta{} }
 func (m *TraceEvent_RPCMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_RPCMeta) ProtoMessage()    {}
 func (*TraceEvent_RPCMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 13}
+	return fileDescriptor_0571941a1d628a80, []int{0, 14}
 }
 func (m *TraceEvent_RPCMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1048,9 +1139,208 @@ func (m *TraceEvent_RPCMeta) GetControl() *TraceEvent_ControlMeta {
 	return nil
 }
 
+func (m *TraceEvent_RPCMeta) GetJmp() []*TraceEvent_JmpMeta {
+	if m != nil {
+		return m.Jmp
+	}
+	return nil
+}
+
+type TraceEvent_JmpMeta struct {
+	JmpMsgs              []*TraceEvent_JmpMeta_JmpMsgMeta   `protobuf:"bytes,1,rep,name=jmpMsgs" json:"jmpMsgs,omitempty"`
+	MsgJamMaxPair        *TraceEvent_JmpMeta_JamMaxPairMeta `protobuf:"bytes,2,opt,name=msgJamMaxPair" json:"msgJamMaxPair,omitempty"`
+	JmpMode              *uint64                            `protobuf:"varint,3,opt,name=jmpMode" json:"jmpMode,omitempty"`
+	Source               []byte                             `protobuf:"bytes,4,opt,name=source" json:"source,omitempty"`
+	Fanout               *int64                             `protobuf:"varint,5,opt,name=fanout" json:"fanout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                           `json:"-"`
+	XXX_unrecognized     []byte                             `json:"-"`
+	XXX_sizecache        int32                              `json:"-"`
+}
+
+func (m *TraceEvent_JmpMeta) Reset()         { *m = TraceEvent_JmpMeta{} }
+func (m *TraceEvent_JmpMeta) String() string { return proto.CompactTextString(m) }
+func (*TraceEvent_JmpMeta) ProtoMessage()    {}
+func (*TraceEvent_JmpMeta) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0571941a1d628a80, []int{0, 15}
+}
+func (m *TraceEvent_JmpMeta) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TraceEvent_JmpMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TraceEvent_JmpMeta.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TraceEvent_JmpMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceEvent_JmpMeta.Merge(m, src)
+}
+func (m *TraceEvent_JmpMeta) XXX_Size() int {
+	return m.Size()
+}
+func (m *TraceEvent_JmpMeta) XXX_DiscardUnknown() {
+	xxx_messageInfo_TraceEvent_JmpMeta.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TraceEvent_JmpMeta proto.InternalMessageInfo
+
+func (m *TraceEvent_JmpMeta) GetJmpMsgs() []*TraceEvent_JmpMeta_JmpMsgMeta {
+	if m != nil {
+		return m.JmpMsgs
+	}
+	return nil
+}
+
+func (m *TraceEvent_JmpMeta) GetMsgJamMaxPair() *TraceEvent_JmpMeta_JamMaxPairMeta {
+	if m != nil {
+		return m.MsgJamMaxPair
+	}
+	return nil
+}
+
+func (m *TraceEvent_JmpMeta) GetJmpMode() uint64 {
+	if m != nil && m.JmpMode != nil {
+		return *m.JmpMode
+	}
+	return 0
+}
+
+func (m *TraceEvent_JmpMeta) GetSource() []byte {
+	if m != nil {
+		return m.Source
+	}
+	return nil
+}
+
+func (m *TraceEvent_JmpMeta) GetFanout() int64 {
+	if m != nil && m.Fanout != nil {
+		return *m.Fanout
+	}
+	return 0
+}
+
+type TraceEvent_JmpMeta_JmpMsgMeta struct {
+	MsgBuf               *TraceEvent_MessageMeta `protobuf:"bytes,1,opt,name=msgBuf" json:"msgBuf,omitempty"`
+	MsgNumber            *int64                  `protobuf:"varint,2,opt,name=msgNumber" json:"msgNumber,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) Reset()         { *m = TraceEvent_JmpMeta_JmpMsgMeta{} }
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) String() string { return proto.CompactTextString(m) }
+func (*TraceEvent_JmpMeta_JmpMsgMeta) ProtoMessage()    {}
+func (*TraceEvent_JmpMeta_JmpMsgMeta) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0571941a1d628a80, []int{0, 15, 0}
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TraceEvent_JmpMeta_JmpMsgMeta.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceEvent_JmpMeta_JmpMsgMeta.Merge(m, src)
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) XXX_Size() int {
+	return m.Size()
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) XXX_DiscardUnknown() {
+	xxx_messageInfo_TraceEvent_JmpMeta_JmpMsgMeta.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TraceEvent_JmpMeta_JmpMsgMeta proto.InternalMessageInfo
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) GetMsgBuf() *TraceEvent_MessageMeta {
+	if m != nil {
+		return m.MsgBuf
+	}
+	return nil
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) GetMsgNumber() int64 {
+	if m != nil && m.MsgNumber != nil {
+		return *m.MsgNumber
+	}
+	return 0
+}
+
+type TraceEvent_JmpMeta_JamMaxPairMeta struct {
+	Jam                  *int64   `protobuf:"varint,1,opt,name=jam" json:"jam,omitempty"`
+	Max                  *int64   `protobuf:"varint,2,opt,name=max" json:"max,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) Reset()         { *m = TraceEvent_JmpMeta_JamMaxPairMeta{} }
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) String() string { return proto.CompactTextString(m) }
+func (*TraceEvent_JmpMeta_JamMaxPairMeta) ProtoMessage()    {}
+func (*TraceEvent_JmpMeta_JamMaxPairMeta) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0571941a1d628a80, []int{0, 15, 1}
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TraceEvent_JmpMeta_JamMaxPairMeta.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceEvent_JmpMeta_JamMaxPairMeta.Merge(m, src)
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) XXX_Size() int {
+	return m.Size()
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) XXX_DiscardUnknown() {
+	xxx_messageInfo_TraceEvent_JmpMeta_JamMaxPairMeta.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TraceEvent_JmpMeta_JamMaxPairMeta proto.InternalMessageInfo
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) GetJam() int64 {
+	if m != nil && m.Jam != nil {
+		return *m.Jam
+	}
+	return 0
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) GetMax() int64 {
+	if m != nil && m.Max != nil {
+		return *m.Max
+	}
+	return 0
+}
+
 type TraceEvent_MessageMeta struct {
 	MessageID            []byte   `protobuf:"bytes,1,opt,name=messageID" json:"messageID,omitempty"`
 	Topic                *string  `protobuf:"bytes,2,opt,name=topic" json:"topic,omitempty"`
+	Hop                  *int64   `protobuf:"varint,3,opt,name=hop" json:"hop,omitempty"`
+	CreateTime           *int64   `protobuf:"varint,4,opt,name=createTime" json:"createTime,omitempty"`
+	Fanout               *int64   `protobuf:"varint,5,opt,name=fanout" json:"fanout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1060,7 +1350,7 @@ func (m *TraceEvent_MessageMeta) Reset()         { *m = TraceEvent_MessageMeta{}
 func (m *TraceEvent_MessageMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_MessageMeta) ProtoMessage()    {}
 func (*TraceEvent_MessageMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 14}
+	return fileDescriptor_0571941a1d628a80, []int{0, 16}
 }
 func (m *TraceEvent_MessageMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1103,6 +1393,27 @@ func (m *TraceEvent_MessageMeta) GetTopic() string {
 	return ""
 }
 
+func (m *TraceEvent_MessageMeta) GetHop() int64 {
+	if m != nil && m.Hop != nil {
+		return *m.Hop
+	}
+	return 0
+}
+
+func (m *TraceEvent_MessageMeta) GetCreateTime() int64 {
+	if m != nil && m.CreateTime != nil {
+		return *m.CreateTime
+	}
+	return 0
+}
+
+func (m *TraceEvent_MessageMeta) GetFanout() int64 {
+	if m != nil && m.Fanout != nil {
+		return *m.Fanout
+	}
+	return 0
+}
+
 type TraceEvent_SubMeta struct {
 	Subscribe            *bool    `protobuf:"varint,1,opt,name=subscribe" json:"subscribe,omitempty"`
 	Topic                *string  `protobuf:"bytes,2,opt,name=topic" json:"topic,omitempty"`
@@ -1115,7 +1426,7 @@ func (m *TraceEvent_SubMeta) Reset()         { *m = TraceEvent_SubMeta{} }
 func (m *TraceEvent_SubMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_SubMeta) ProtoMessage()    {}
 func (*TraceEvent_SubMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 15}
+	return fileDescriptor_0571941a1d628a80, []int{0, 17}
 }
 func (m *TraceEvent_SubMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1172,7 +1483,7 @@ func (m *TraceEvent_ControlMeta) Reset()         { *m = TraceEvent_ControlMeta{}
 func (m *TraceEvent_ControlMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_ControlMeta) ProtoMessage()    {}
 func (*TraceEvent_ControlMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 16}
+	return fileDescriptor_0571941a1d628a80, []int{0, 18}
 }
 func (m *TraceEvent_ControlMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1241,7 +1552,7 @@ func (m *TraceEvent_ControlIHaveMeta) Reset()         { *m = TraceEvent_ControlI
 func (m *TraceEvent_ControlIHaveMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_ControlIHaveMeta) ProtoMessage()    {}
 func (*TraceEvent_ControlIHaveMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 17}
+	return fileDescriptor_0571941a1d628a80, []int{0, 19}
 }
 func (m *TraceEvent_ControlIHaveMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1295,7 +1606,7 @@ func (m *TraceEvent_ControlIWantMeta) Reset()         { *m = TraceEvent_ControlI
 func (m *TraceEvent_ControlIWantMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_ControlIWantMeta) ProtoMessage()    {}
 func (*TraceEvent_ControlIWantMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 18}
+	return fileDescriptor_0571941a1d628a80, []int{0, 20}
 }
 func (m *TraceEvent_ControlIWantMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1342,7 +1653,7 @@ func (m *TraceEvent_ControlGraftMeta) Reset()         { *m = TraceEvent_ControlG
 func (m *TraceEvent_ControlGraftMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_ControlGraftMeta) ProtoMessage()    {}
 func (*TraceEvent_ControlGraftMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 19}
+	return fileDescriptor_0571941a1d628a80, []int{0, 21}
 }
 func (m *TraceEvent_ControlGraftMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1390,7 +1701,7 @@ func (m *TraceEvent_ControlPruneMeta) Reset()         { *m = TraceEvent_ControlP
 func (m *TraceEvent_ControlPruneMeta) String() string { return proto.CompactTextString(m) }
 func (*TraceEvent_ControlPruneMeta) ProtoMessage()    {}
 func (*TraceEvent_ControlPruneMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0571941a1d628a80, []int{0, 20}
+	return fileDescriptor_0571941a1d628a80, []int{0, 22}
 }
 func (m *TraceEvent_ControlPruneMeta) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1496,7 +1807,11 @@ func init() {
 	proto.RegisterType((*TraceEvent_Leave)(nil), "pubsub.pb.TraceEvent.Leave")
 	proto.RegisterType((*TraceEvent_Graft)(nil), "pubsub.pb.TraceEvent.Graft")
 	proto.RegisterType((*TraceEvent_Prune)(nil), "pubsub.pb.TraceEvent.Prune")
+	proto.RegisterType((*TraceEvent_HitMessage)(nil), "pubsub.pb.TraceEvent.HitMessage")
 	proto.RegisterType((*TraceEvent_RPCMeta)(nil), "pubsub.pb.TraceEvent.RPCMeta")
+	proto.RegisterType((*TraceEvent_JmpMeta)(nil), "pubsub.pb.TraceEvent.JmpMeta")
+	proto.RegisterType((*TraceEvent_JmpMeta_JmpMsgMeta)(nil), "pubsub.pb.TraceEvent.JmpMeta.JmpMsgMeta")
+	proto.RegisterType((*TraceEvent_JmpMeta_JamMaxPairMeta)(nil), "pubsub.pb.TraceEvent.JmpMeta.JamMaxPairMeta")
 	proto.RegisterType((*TraceEvent_MessageMeta)(nil), "pubsub.pb.TraceEvent.MessageMeta")
 	proto.RegisterType((*TraceEvent_SubMeta)(nil), "pubsub.pb.TraceEvent.SubMeta")
 	proto.RegisterType((*TraceEvent_ControlMeta)(nil), "pubsub.pb.TraceEvent.ControlMeta")
@@ -1510,70 +1825,85 @@ func init() {
 func init() { proto.RegisterFile("trace.proto", fileDescriptor_0571941a1d628a80) }
 
 var fileDescriptor_0571941a1d628a80 = []byte{
-	// 999 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x96, 0x51, 0x6f, 0xda, 0x56,
-	0x14, 0xc7, 0xe7, 0x00, 0x01, 0x0e, 0x84, 0x78, 0x77, 0x6d, 0x65, 0xb1, 0x36, 0x62, 0x59, 0x55,
-	0x21, 0x4d, 0x42, 0x6a, 0xa4, 0xa9, 0x0f, 0x6b, 0xab, 0x11, 0xec, 0x26, 0x44, 0x24, 0xb1, 0x0e,
-	0x24, 0x7b, 0xcc, 0x0c, 0xdc, 0x35, 0x8e, 0xc0, 0xb6, 0xec, 0x0b, 0x53, 0x9f, 0xf6, 0xb4, 0xef,
-	0xd6, 0xb7, 0xed, 0x23, 0x54, 0xf9, 0x24, 0xd3, 0xbd, 0xd7, 0x36, 0x36, 0xd8, 0xb4, 0x8b, 0xfa,
-	0xe6, 0x73, 0xf3, 0xff, 0x9d, 0x7b, 0xce, 0xbd, 0xe7, 0x7f, 0x03, 0xd4, 0x98, 0x6f, 0x4d, 0x68,
-	0xc7, 0xf3, 0x5d, 0xe6, 0x92, 0xaa, 0xb7, 0x18, 0x07, 0x8b, 0x71, 0xc7, 0x1b, 0x1f, 0x7e, 0x7a,
-	0x02, 0x30, 0xe2, 0x7f, 0x32, 0x96, 0xd4, 0x61, 0xa4, 0x03, 0x45, 0xf6, 0xc1, 0xa3, 0x9a, 0xd2,
-	0x52, 0xda, 0x8d, 0xa3, 0x66, 0x27, 0x16, 0x76, 0x56, 0xa2, 0xce, 0xe8, 0x83, 0x47, 0x51, 0xe8,
-	0xc8, 0x13, 0xd8, 0xf5, 0x28, 0xf5, 0xfb, 0xba, 0xb6, 0xd3, 0x52, 0xda, 0x75, 0x0c, 0x23, 0xf2,
-	0x14, 0xaa, 0xcc, 0x9e, 0xd3, 0x80, 0x59, 0x73, 0x4f, 0x2b, 0xb4, 0x94, 0x76, 0x01, 0x57, 0x0b,
-	0x64, 0x00, 0x0d, 0x6f, 0x31, 0x9e, 0xd9, 0xc1, 0xed, 0x39, 0x0d, 0x02, 0xeb, 0x3d, 0xd5, 0x8a,
-	0x2d, 0xa5, 0x5d, 0x3b, 0x7a, 0x9e, 0xbd, 0x9f, 0x99, 0xd2, 0xe2, 0x1a, 0x4b, 0xfa, 0xb0, 0xe7,
-	0xd3, 0x3b, 0x3a, 0x61, 0x51, 0xb2, 0x92, 0x48, 0xf6, 0x63, 0x76, 0x32, 0x4c, 0x4a, 0x31, 0x4d,
-	0x12, 0x04, 0x75, 0xba, 0xf0, 0x66, 0xf6, 0xc4, 0x62, 0x34, 0xca, 0xb6, 0x2b, 0xb2, 0xbd, 0xc8,
-	0xce, 0xa6, 0xaf, 0xa9, 0x71, 0x83, 0xe7, 0xcd, 0x4e, 0xe9, 0xcc, 0x5e, 0x52, 0x3f, 0xca, 0x58,
-	0xde, 0xd6, 0xac, 0x9e, 0xd2, 0xe2, 0x1a, 0x4b, 0x5e, 0x41, 0xd9, 0x9a, 0x4e, 0x4d, 0x4a, 0x7d,
-	0xad, 0x22, 0xd2, 0x3c, 0xcb, 0x4e, 0xd3, 0x95, 0x22, 0x8c, 0xd4, 0xe4, 0x57, 0x00, 0x9f, 0xce,
-	0xdd, 0x25, 0x15, 0x6c, 0x55, 0xb0, 0xad, 0xbc, 0x23, 0x8a, 0x74, 0x98, 0x60, 0xf8, 0xd6, 0x3e,
-	0x9d, 0x2c, 0xd1, 0xec, 0x69, 0xb0, 0x6d, 0x6b, 0x94, 0x22, 0x8c, 0xd4, 0x1c, 0x0c, 0xa8, 0x33,
-	0xe5, 0x60, 0x6d, 0x1b, 0x38, 0x94, 0x22, 0x8c, 0xd4, 0x1c, 0x9c, 0xfa, 0xae, 0xc7, 0xc1, 0xfa,
-	0x36, 0x50, 0x97, 0x22, 0x8c, 0xd4, 0x7c, 0x8c, 0xef, 0x5c, 0xdb, 0xd1, 0xf6, 0x04, 0x95, 0x33,
-	0xc6, 0x67, 0xae, 0xed, 0xa0, 0xd0, 0x91, 0x97, 0x50, 0x9a, 0x51, 0x6b, 0x49, 0xb5, 0x86, 0x00,
-	0xbe, 0xcf, 0x06, 0x06, 0x5c, 0x82, 0x52, 0xc9, 0x91, 0xf7, 0xbe, 0xf5, 0x07, 0xd3, 0xf6, 0xb7,
-	0x21, 0x27, 0x5c, 0x82, 0x52, 0xc9, 0x11, 0xcf, 0x5f, 0x38, 0x54, 0x53, 0xb7, 0x21, 0x26, 0x97,
-	0xa0, 0x54, 0x36, 0x75, 0x68, 0xa4, 0xa7, 0x9f, 0x3b, 0x6b, 0x2e, 0x3f, 0xfb, 0xba, 0xb0, 0x69,
-	0x1d, 0x57, 0x0b, 0xe4, 0x11, 0x94, 0x98, 0xeb, 0xd9, 0x13, 0x61, 0xc7, 0x2a, 0xca, 0xa0, 0xf9,
-	0x17, 0xec, 0xa5, 0xc6, 0xfe, 0x33, 0x49, 0x0e, 0xa1, 0xee, 0xd3, 0x09, 0xb5, 0x97, 0x74, 0xfa,
-	0xce, 0x77, 0xe7, 0xa1, 0xb5, 0x53, 0x6b, 0xdc, 0xf8, 0x3e, 0xb5, 0x02, 0xd7, 0x11, 0xee, 0xae,
-	0x62, 0x18, 0xad, 0x0a, 0x28, 0x26, 0x0b, 0xb8, 0x03, 0x75, 0xdd, 0x29, 0x5f, 0xa1, 0x86, 0x78,
-	0xaf, 0x42, 0x72, 0xaf, 0x5b, 0x68, 0xa4, 0x3d, 0xf4, 0x90, 0x23, 0xdb, 0xd8, 0xbf, 0xb0, 0xb9,
-	0x7f, 0xf3, 0x15, 0x94, 0x43, 0x9b, 0x25, 0xde, 0x41, 0x25, 0xf5, 0x0e, 0x3e, 0xe2, 0x57, 0xee,
-	0x32, 0x37, 0x4a, 0x2e, 0x82, 0xe6, 0x73, 0x80, 0x95, 0xc7, 0xf2, 0xd8, 0xe6, 0xef, 0x50, 0x0e,
-	0xad, 0xb4, 0x51, 0x8d, 0x92, 0x71, 0x1a, 0x2f, 0xa1, 0x38, 0xa7, 0xcc, 0x12, 0x3b, 0xe5, 0x7b,
-	0xd3, 0xec, 0x9d, 0x53, 0x66, 0xa1, 0x90, 0x36, 0x47, 0x50, 0x0e, 0x3d, 0xc7, 0x8b, 0xe0, 0xae,
-	0x1b, 0xb9, 0x51, 0x11, 0x32, 0x7a, 0x60, 0xd6, 0xd0, 0x90, 0x5f, 0x33, 0xeb, 0x53, 0x28, 0x72,
-	0xc3, 0xae, 0xae, 0x4b, 0x49, 0x5e, 0xfa, 0x33, 0x28, 0x09, 0x77, 0xe6, 0x18, 0xe0, 0x67, 0x28,
-	0x09, 0x27, 0x6e, 0xbb, 0xa7, 0x6c, 0x4c, 0xb8, 0xf1, 0x7f, 0x62, 0x1f, 0x15, 0x28, 0x87, 0xc5,
-	0x93, 0x37, 0x50, 0x09, 0x47, 0x2d, 0xd0, 0x94, 0x56, 0xa1, 0x5d, 0x3b, 0xfa, 0x21, 0xbb, 0xdb,
-	0x70, 0x58, 0x45, 0xc7, 0x31, 0x42, 0xba, 0x50, 0x0f, 0x16, 0xe3, 0x60, 0xe2, 0xdb, 0x1e, 0xb3,
-	0x5d, 0x47, 0xdb, 0x11, 0x29, 0xf2, 0xde, 0xcf, 0xc5, 0x58, 0xe0, 0x29, 0x84, 0xfc, 0x02, 0xe5,
-	0x89, 0xeb, 0x30, 0xdf, 0x9d, 0x89, 0x21, 0xce, 0x2d, 0xa0, 0x27, 0x45, 0x22, 0x43, 0x44, 0x34,
-	0xbb, 0x50, 0x4b, 0x14, 0xf6, 0xa0, 0xc7, 0xe7, 0x0d, 0x94, 0xc3, 0xc2, 0x38, 0x1e, 0x96, 0x36,
-	0x96, 0x3f, 0x31, 0x2a, 0xb8, 0x5a, 0xc8, 0xc1, 0xff, 0xde, 0x81, 0x5a, 0xa2, 0x34, 0xf2, 0x1a,
-	0x4a, 0xf6, 0x2d, 0x7f, 0xaa, 0xe5, 0x69, 0xbe, 0xd8, 0xda, 0x4c, 0xff, 0xd4, 0x5a, 0xca, 0x23,
-	0x95, 0x90, 0xa0, 0xff, 0xb4, 0x1c, 0x16, 0x1e, 0xe4, 0x67, 0xe8, 0xdf, 0x2c, 0x87, 0x85, 0x34,
-	0x87, 0x38, 0x2d, 0xdf, 0xfc, 0xc2, 0x17, 0xd0, 0x62, 0xe0, 0x24, 0x2d, 0x9f, 0xff, 0xd7, 0xd1,
-	0xf3, 0x5f, 0xfc, 0x02, 0x5a, 0xcc, 0x9d, 0xa4, 0xe5, 0x7f, 0x82, 0x53, 0x50, 0xd7, 0x9b, 0xca,
-	0xf6, 0x02, 0x39, 0x00, 0x88, 0xef, 0x24, 0x10, 0x8d, 0xd6, 0x31, 0xb1, 0xd2, 0x3c, 0x5a, 0x65,
-	0x8a, 0x1a, 0x5c, 0x63, 0x94, 0x0d, 0xa6, 0x1d, 0x33, 0x71, 0x5b, 0x39, 0x4e, 0x7c, 0x1b, 0x2b,
-	0xe3, 0x16, 0x72, 0xea, 0xe4, 0x6f, 0x23, 0xa5, 0x7e, 0x54, 0xa2, 0x0c, 0x0e, 0xff, 0x51, 0xa0,
-	0xc8, 0x7f, 0x60, 0x92, 0xef, 0x60, 0xdf, 0xbc, 0x3a, 0x1e, 0xf4, 0x87, 0xa7, 0x37, 0xe7, 0xc6,
-	0x70, 0xd8, 0x3d, 0x31, 0xd4, 0x6f, 0x08, 0x81, 0x06, 0x1a, 0x67, 0x46, 0x6f, 0x14, 0xaf, 0x29,
-	0xe4, 0x31, 0x7c, 0xab, 0x5f, 0x99, 0x83, 0x7e, 0xaf, 0x3b, 0x32, 0xe2, 0xe5, 0x1d, 0xce, 0xeb,
-	0xc6, 0xa0, 0x7f, 0x6d, 0x60, 0xbc, 0x58, 0x20, 0x75, 0xa8, 0x74, 0x75, 0xfd, 0xc6, 0x34, 0x0c,
-	0x54, 0x8b, 0x64, 0x1f, 0x6a, 0x68, 0x9c, 0x5f, 0x5e, 0x1b, 0x72, 0xa1, 0xc4, 0xff, 0x8c, 0x46,
-	0xef, 0xfa, 0x06, 0xcd, 0x9e, 0xba, 0xcb, 0xa3, 0xa1, 0x71, 0xa1, 0x8b, 0xa8, 0xcc, 0x23, 0x1d,
-	0x2f, 0x4d, 0x11, 0x55, 0x48, 0x05, 0x8a, 0x67, 0x97, 0xfd, 0x0b, 0xb5, 0x4a, 0xaa, 0x50, 0x1a,
-	0x18, 0xdd, 0x6b, 0x43, 0x05, 0xfe, 0x79, 0x82, 0xdd, 0x77, 0x23, 0xb5, 0xc6, 0x3f, 0x4d, 0xbc,
-	0xba, 0x30, 0xd4, 0xfa, 0xe1, 0x5b, 0xd8, 0x5f, 0xdd, 0xef, 0xb1, 0xc5, 0x26, 0xb7, 0xe4, 0x27,
-	0x28, 0x8d, 0xf9, 0x47, 0x38, 0xc4, 0x8f, 0x33, 0x47, 0x01, 0xa5, 0xe6, 0xb8, 0xfe, 0xf1, 0xfe,
-	0x40, 0xf9, 0xf7, 0xfe, 0x40, 0xf9, 0x74, 0x7f, 0xa0, 0xfc, 0x17, 0x00, 0x00, 0xff, 0xff, 0xdb,
-	0x3a, 0x1c, 0xe4, 0xc9, 0x0b, 0x00, 0x00,
+	// 1240 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0xcd, 0x6e, 0xdb, 0x46,
+	0x10, 0x2e, 0x4d, 0xc9, 0x92, 0x46, 0xb2, 0xcc, 0x6c, 0x93, 0x82, 0x60, 0x13, 0x43, 0x75, 0x83,
+	0x40, 0x40, 0x0b, 0x15, 0x31, 0x5a, 0x04, 0x45, 0x93, 0xa0, 0xb2, 0xc8, 0xc4, 0x32, 0x24, 0x87,
+	0x58, 0x2b, 0xee, 0xd1, 0xa5, 0xa4, 0xb5, 0x44, 0xc1, 0x14, 0x09, 0x92, 0x52, 0x93, 0x53, 0x4f,
+	0x05, 0x0a, 0xf4, 0xde, 0x67, 0xea, 0xb1, 0x40, 0x5f, 0x20, 0xf0, 0x5b, 0xf4, 0x56, 0xec, 0x0f,
+	0xff, 0x64, 0x51, 0x76, 0x8d, 0x9c, 0xbc, 0x33, 0xfa, 0xbe, 0xd9, 0x99, 0x9d, 0xf9, 0x96, 0x6b,
+	0xa8, 0x86, 0xbe, 0x35, 0x22, 0x2d, 0xcf, 0x77, 0x43, 0x17, 0x55, 0xbc, 0xc5, 0x30, 0x58, 0x0c,
+	0x5b, 0xde, 0x70, 0xff, 0x9f, 0x87, 0x00, 0x03, 0xfa, 0x93, 0xb1, 0x24, 0xf3, 0x10, 0xb5, 0xa0,
+	0x10, 0xbe, 0xf7, 0x88, 0x2a, 0x35, 0xa4, 0x66, 0xfd, 0x40, 0x6b, 0xc5, 0xc0, 0x56, 0x02, 0x6a,
+	0x0d, 0xde, 0x7b, 0x04, 0x33, 0x1c, 0xfa, 0x0c, 0xb6, 0x3d, 0x42, 0xfc, 0xae, 0xae, 0x6e, 0x35,
+	0xa4, 0x66, 0x0d, 0x0b, 0x0b, 0x3d, 0x84, 0x4a, 0x68, 0x3b, 0x24, 0x08, 0x2d, 0xc7, 0x53, 0xe5,
+	0x86, 0xd4, 0x94, 0x71, 0xe2, 0x40, 0x3d, 0xa8, 0x7b, 0x8b, 0xe1, 0xa5, 0x1d, 0x4c, 0xfb, 0x24,
+	0x08, 0xac, 0x09, 0x51, 0x0b, 0x0d, 0xa9, 0x59, 0x3d, 0x78, 0xbc, 0x7e, 0x3f, 0x33, 0x83, 0xc5,
+	0x2b, 0x5c, 0xd4, 0x85, 0x1d, 0x9f, 0xcc, 0xc8, 0x28, 0x8c, 0x82, 0x15, 0x59, 0xb0, 0x2f, 0xd7,
+	0x07, 0xc3, 0x69, 0x28, 0xce, 0x32, 0x11, 0x06, 0x65, 0xbc, 0xf0, 0x2e, 0xed, 0x91, 0x15, 0x92,
+	0x28, 0xda, 0x36, 0x8b, 0xf6, 0x64, 0x7d, 0x34, 0x7d, 0x05, 0x8d, 0xaf, 0xf1, 0x69, 0xb1, 0x63,
+	0x72, 0x69, 0x2f, 0x89, 0x1f, 0x45, 0x2c, 0x6d, 0x2a, 0x56, 0xcf, 0x60, 0xf1, 0x0a, 0x17, 0x3d,
+	0x83, 0x92, 0x35, 0x1e, 0x9b, 0x84, 0xf8, 0x6a, 0x99, 0x85, 0x79, 0xb4, 0x3e, 0x4c, 0x9b, 0x83,
+	0x70, 0x84, 0x46, 0x3f, 0x02, 0xf8, 0xc4, 0x71, 0x97, 0x84, 0x71, 0x2b, 0x8c, 0xdb, 0xc8, 0x3b,
+	0xa2, 0x08, 0x87, 0x53, 0x1c, 0xba, 0xb5, 0x4f, 0x46, 0x4b, 0x6c, 0x76, 0x54, 0xd8, 0xb4, 0x35,
+	0xe6, 0x20, 0x1c, 0xa1, 0x29, 0x31, 0x20, 0xf3, 0x31, 0x25, 0x56, 0x37, 0x11, 0x4f, 0x39, 0x08,
+	0x47, 0x68, 0x4a, 0x1c, 0xfb, 0xae, 0x47, 0x89, 0xb5, 0x4d, 0x44, 0x9d, 0x83, 0x70, 0x84, 0xa6,
+	0x63, 0x3c, 0x73, 0xed, 0xb9, 0xba, 0xc3, 0x58, 0x39, 0x63, 0x7c, 0xec, 0xda, 0x73, 0xcc, 0x70,
+	0xe8, 0x29, 0x14, 0x2f, 0x89, 0xb5, 0x24, 0x6a, 0x9d, 0x11, 0x3e, 0x5f, 0x4f, 0xe8, 0x51, 0x08,
+	0xe6, 0x48, 0x4a, 0x99, 0xf8, 0xd6, 0x45, 0xa8, 0xee, 0x6e, 0xa2, 0xbc, 0xa6, 0x10, 0xcc, 0x91,
+	0x94, 0xe2, 0xf9, 0x8b, 0x39, 0x51, 0x95, 0x4d, 0x14, 0x93, 0x42, 0x30, 0x47, 0xd2, 0xae, 0x4d,
+	0xed, 0x78, 0xb0, 0xef, 0x6d, 0xea, 0xda, 0x51, 0x8c, 0xc3, 0x29, 0x8e, 0xa6, 0x43, 0x3d, 0xab,
+	0x1f, 0xaa, 0x4d, 0x87, 0x2f, 0xbb, 0x3a, 0x13, 0x7a, 0x0d, 0x27, 0x0e, 0x74, 0x1f, 0x8a, 0xa1,
+	0xeb, 0xd9, 0x23, 0x26, 0xe8, 0x0a, 0xe6, 0x86, 0xf6, 0x2b, 0xec, 0x64, 0x84, 0x73, 0x43, 0x90,
+	0x7d, 0xa8, 0xf9, 0x64, 0x44, 0xec, 0x25, 0x19, 0xbf, 0xf2, 0x5d, 0x47, 0x5c, 0x0e, 0x19, 0x1f,
+	0xbd, 0x3a, 0x7c, 0x62, 0x05, 0xee, 0x9c, 0xdd, 0x0f, 0x15, 0x2c, 0xac, 0x24, 0x81, 0x42, 0x3a,
+	0x81, 0x19, 0x28, 0xab, 0x5a, 0xfb, 0x08, 0x39, 0xc4, 0x7b, 0xc9, 0xe9, 0xbd, 0xa6, 0x50, 0xcf,
+	0xaa, 0xf0, 0x2e, 0x47, 0x76, 0x6d, 0x7f, 0xf9, 0xfa, 0xfe, 0xda, 0x33, 0x28, 0x09, 0xa1, 0xa6,
+	0x6e, 0x52, 0x29, 0x73, 0x93, 0xde, 0xa7, 0x43, 0xe3, 0x86, 0x6e, 0x14, 0x9c, 0x19, 0xda, 0x63,
+	0x80, 0x44, 0xa5, 0x79, 0x5c, 0xed, 0x67, 0x28, 0x09, 0x31, 0x5e, 0xcb, 0x46, 0x5a, 0x73, 0x1a,
+	0x4f, 0xa1, 0xe0, 0x90, 0xd0, 0x62, 0x3b, 0xe5, 0xab, 0xdb, 0xec, 0xf4, 0x49, 0x68, 0x61, 0x06,
+	0xd5, 0x06, 0x50, 0x12, 0xaa, 0xa5, 0x49, 0x50, 0xdd, 0x0e, 0xdc, 0x28, 0x09, 0x6e, 0xdd, 0x31,
+	0xaa, 0x90, 0xf4, 0xc7, 0x8c, 0xfa, 0x10, 0x0a, 0x54, 0xf2, 0x49, 0xbb, 0xa4, 0x74, 0xd3, 0x1f,
+	0x41, 0x91, 0xe9, 0x3b, 0x47, 0x00, 0xdf, 0x41, 0x91, 0x69, 0x79, 0x53, 0x9f, 0xd6, 0xd3, 0x98,
+	0x9e, 0xff, 0x27, 0xed, 0x4f, 0x09, 0x20, 0xd1, 0xf3, 0xad, 0x9a, 0x97, 0x19, 0xd1, 0xad, 0xdc,
+	0x11, 0x4d, 0x0f, 0x3a, 0x52, 0x40, 0x9e, 0xba, 0x1e, 0x13, 0x9a, 0x8c, 0xe9, 0x12, 0xed, 0x01,
+	0x8c, 0x7c, 0x62, 0x85, 0x64, 0x60, 0x3b, 0xfc, 0x43, 0x2a, 0xe3, 0x94, 0x47, 0xfb, 0x57, 0x82,
+	0x92, 0x38, 0x55, 0xf4, 0x02, 0xca, 0x62, 0x83, 0x40, 0x95, 0x1a, 0x72, 0xb3, 0x7a, 0xf0, 0xc5,
+	0xfa, 0x36, 0x88, 0x32, 0x58, 0x2b, 0x62, 0x0a, 0x6a, 0x43, 0x2d, 0x58, 0x0c, 0x83, 0x91, 0x6f,
+	0x7b, 0xa1, 0xed, 0xce, 0xd5, 0x2d, 0x16, 0x22, 0xef, 0xd3, 0xb0, 0x18, 0x32, 0x7a, 0x86, 0x82,
+	0x7e, 0x80, 0xd2, 0xc8, 0x9d, 0x87, 0xbe, 0x7b, 0xc9, 0xea, 0xca, 0x4d, 0xa0, 0xc3, 0x41, 0x2c,
+	0x42, 0xc4, 0x40, 0xdf, 0x80, 0x3c, 0x73, 0x68, 0xf1, 0x1b, 0xb6, 0x3d, 0x76, 0x3c, 0x46, 0xa2,
+	0x48, 0xed, 0x77, 0x19, 0x4a, 0xc2, 0x81, 0x0e, 0xa1, 0x34, 0x73, 0xbc, 0x7e, 0x30, 0x89, 0x4a,
+	0x6f, 0x6e, 0x0c, 0xc0, 0xfe, 0x06, 0x13, 0x9e, 0x80, 0x20, 0x22, 0x0c, 0x3b, 0x4e, 0x30, 0x39,
+	0xb6, 0x9c, 0xbe, 0xf5, 0xce, 0xb4, 0x6c, 0x5f, 0xcc, 0xf2, 0xd7, 0x37, 0x44, 0x8a, 0xf1, 0x2c,
+	0x5a, 0x36, 0x04, 0x52, 0x79, 0x5e, 0xee, 0x98, 0xb0, 0x13, 0x29, 0xe0, 0xc8, 0x64, 0x42, 0x72,
+	0x17, 0xfe, 0x88, 0xbf, 0xb5, 0xa8, 0x90, 0x98, 0x45, 0xfd, 0x17, 0xd6, 0xdc, 0x5d, 0x84, 0xa2,
+	0xdb, 0xc2, 0xd2, 0x08, 0x40, 0x92, 0x34, 0xfa, 0x1e, 0xb6, 0x9d, 0x60, 0x72, 0xb8, 0xb8, 0x60,
+	0xb3, 0x77, 0xab, 0x4e, 0x0b, 0x02, 0x1b, 0xcc, 0x60, 0x72, 0xb2, 0x70, 0x86, 0x84, 0x97, 0x28,
+	0xe3, 0xc4, 0xa1, 0x7d, 0x0b, 0xf5, 0x6c, 0x45, 0x74, 0x28, 0x67, 0x16, 0x9f, 0x71, 0x19, 0xd3,
+	0x25, 0xf5, 0x38, 0xd6, 0x3b, 0xc1, 0xa5, 0x4b, 0xed, 0x0f, 0x09, 0xaa, 0xa9, 0xbd, 0xee, 0x74,
+	0x3f, 0x8b, 0xe1, 0x97, 0xf3, 0x86, 0xbf, 0xb0, 0x3a, 0xfc, 0xb9, 0x47, 0xf5, 0x02, 0x4a, 0x62,
+	0x3e, 0x69, 0x22, 0x62, 0x42, 0x87, 0xfc, 0x11, 0x5d, 0xc6, 0x89, 0x23, 0x47, 0xec, 0xbf, 0x6d,
+	0x41, 0x35, 0x35, 0xa1, 0xe8, 0x39, 0x14, 0xed, 0x29, 0x7d, 0x8c, 0xf0, 0xc9, 0x7a, 0xb2, 0x71,
+	0xa6, 0xbb, 0x47, 0xd6, 0x92, 0x9f, 0x37, 0x27, 0x31, 0xf6, 0x2f, 0xd6, 0x3c, 0x14, 0x7a, 0xba,
+	0x81, 0xfd, 0x93, 0x35, 0x0f, 0x05, 0x9b, 0x92, 0x28, 0x9b, 0xbf, 0x6a, 0xe4, 0x5b, 0xb0, 0xd9,
+	0x85, 0xc8, 0xd9, 0xfc, 0x81, 0xf3, 0x3c, 0x7a, 0xe0, 0x14, 0x6e, 0xc1, 0x66, 0xf7, 0x22, 0x67,
+	0x33, 0x92, 0x76, 0x04, 0xca, 0x6a, 0x51, 0xeb, 0xef, 0x6a, 0xda, 0xa8, 0xb8, 0xbb, 0x01, 0x2b,
+	0xb4, 0x86, 0x53, 0x1e, 0xed, 0x20, 0x89, 0x14, 0x15, 0xb8, 0xc2, 0x91, 0xae, 0x71, 0x9a, 0x31,
+	0x27, 0x2e, 0x2b, 0xe7, 0x4b, 0xf1, 0x32, 0x46, 0xc6, 0x25, 0xe4, 0xe4, 0x49, 0xbf, 0xdd, 0x84,
+	0xf8, 0x51, 0x8a, 0xdc, 0xd8, 0xff, 0x20, 0x41, 0x81, 0xfe, 0x0b, 0x85, 0x3e, 0x85, 0x5d, 0xf3,
+	0xed, 0x61, 0xaf, 0x7b, 0x7a, 0x74, 0xde, 0x37, 0x4e, 0x4f, 0xdb, 0xaf, 0x0d, 0xe5, 0x13, 0x84,
+	0xa0, 0x8e, 0x8d, 0x63, 0xa3, 0x33, 0x88, 0x7d, 0x12, 0x7a, 0x00, 0xf7, 0xf4, 0xb7, 0x66, 0xaf,
+	0xdb, 0x69, 0x0f, 0x8c, 0xd8, 0xbd, 0x45, 0xf9, 0xba, 0xd1, 0xeb, 0x9e, 0x19, 0x38, 0x76, 0xca,
+	0xa8, 0x06, 0xe5, 0xb6, 0xae, 0x9f, 0x9b, 0x86, 0x81, 0x95, 0x02, 0xda, 0x85, 0x2a, 0x36, 0xfa,
+	0x6f, 0xce, 0x0c, 0xee, 0x28, 0xd2, 0x9f, 0xb1, 0xd1, 0x39, 0x3b, 0xc7, 0x66, 0x47, 0xd9, 0xa6,
+	0xd6, 0xa9, 0x71, 0xa2, 0x33, 0xab, 0x44, 0x2d, 0x1d, 0xbf, 0x31, 0x99, 0x55, 0x46, 0x65, 0x28,
+	0x1c, 0xbf, 0xe9, 0x9e, 0x28, 0x15, 0x54, 0x81, 0x62, 0xcf, 0x68, 0x9f, 0x19, 0x0a, 0xd0, 0xe5,
+	0x6b, 0xdc, 0x7e, 0x35, 0x50, 0xaa, 0x74, 0x69, 0xe2, 0xb7, 0x27, 0x86, 0x52, 0xa3, 0xbb, 0x1c,
+	0x75, 0x93, 0x84, 0x77, 0xf6, 0x5f, 0xc2, 0x6e, 0xd2, 0xf0, 0x43, 0x2b, 0x1c, 0x4d, 0xd1, 0x57,
+	0x50, 0x1c, 0xd2, 0x85, 0x98, 0xea, 0x07, 0x6b, 0x67, 0x03, 0x73, 0xcc, 0x61, 0xed, 0xaf, 0xab,
+	0x3d, 0xe9, 0xef, 0xab, 0x3d, 0xe9, 0xc3, 0xd5, 0x9e, 0xf4, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff,
+	0x03, 0x04, 0xf2, 0x2d, 0xbc, 0x0e, 0x00, 0x00,
 }
 
 func (m *TraceEvent) Marshal() (dAtA []byte, err error) {
@@ -1599,6 +1929,20 @@ func (m *TraceEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.HitMessage != nil {
+		{
+			size, err := m.HitMessage.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTrace(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
 	}
 	if m.Prune != nil {
 		{
@@ -2333,6 +2677,64 @@ func (m *TraceEvent_Prune) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *TraceEvent_HitMessage) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TraceEvent_HitMessage) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TraceEvent_HitMessage) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.CreateTime != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.CreateTime))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Hop != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Hop))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Topic != nil {
+		i -= len(*m.Topic)
+		copy(dAtA[i:], *m.Topic)
+		i = encodeVarintTrace(dAtA, i, uint64(len(*m.Topic)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.MessageID != nil {
+		i -= len(m.MessageID)
+		copy(dAtA[i:], m.MessageID)
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.MessageID)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.ReceivedFrom != nil {
+		i -= len(m.ReceivedFrom)
+		copy(dAtA[i:], m.ReceivedFrom)
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.ReceivedFrom)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *TraceEvent_RPCMeta) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2356,6 +2758,20 @@ func (m *TraceEvent_RPCMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Jmp) > 0 {
+		for iNdEx := len(m.Jmp) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Jmp[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTrace(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
 	}
 	if m.Control != nil {
 		{
@@ -2400,6 +2816,157 @@ func (m *TraceEvent_RPCMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *TraceEvent_JmpMeta) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TraceEvent_JmpMeta) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TraceEvent_JmpMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Fanout != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Fanout))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Source != nil {
+		i -= len(m.Source)
+		copy(dAtA[i:], m.Source)
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.Source)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.JmpMode != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.JmpMode))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.MsgJamMaxPair != nil {
+		{
+			size, err := m.MsgJamMaxPair.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTrace(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.JmpMsgs) > 0 {
+		for iNdEx := len(m.JmpMsgs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.JmpMsgs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTrace(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.MsgNumber != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.MsgNumber))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.MsgBuf != nil {
+		{
+			size, err := m.MsgBuf.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTrace(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Max != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Max))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Jam != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Jam))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *TraceEvent_MessageMeta) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2423,6 +2990,21 @@ func (m *TraceEvent_MessageMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Fanout != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Fanout))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.CreateTime != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.CreateTime))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Hop != nil {
+		i = encodeVarintTrace(dAtA, i, uint64(*m.Hop))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.Topic != nil {
 		i -= len(*m.Topic)
@@ -2844,6 +3426,10 @@ func (m *TraceEvent) Size() (n int) {
 		l = m.Prune.Size()
 		n += 2 + l + sovTrace(uint64(l))
 	}
+	if m.HitMessage != nil {
+		l = m.HitMessage.Size()
+		n += 2 + l + sovTrace(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -3114,6 +3700,36 @@ func (m *TraceEvent_Prune) Size() (n int) {
 	return n
 }
 
+func (m *TraceEvent_HitMessage) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ReceivedFrom != nil {
+		l = len(m.ReceivedFrom)
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.MessageID != nil {
+		l = len(m.MessageID)
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.Topic != nil {
+		l = len(*m.Topic)
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.Hop != nil {
+		n += 1 + sovTrace(uint64(*m.Hop))
+	}
+	if m.CreateTime != nil {
+		n += 1 + sovTrace(uint64(*m.CreateTime))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *TraceEvent_RPCMeta) Size() (n int) {
 	if m == nil {
 		return 0
@@ -3136,6 +3752,81 @@ func (m *TraceEvent_RPCMeta) Size() (n int) {
 		l = m.Control.Size()
 		n += 1 + l + sovTrace(uint64(l))
 	}
+	if len(m.Jmp) > 0 {
+		for _, e := range m.Jmp {
+			l = e.Size()
+			n += 1 + l + sovTrace(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TraceEvent_JmpMeta) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.JmpMsgs) > 0 {
+		for _, e := range m.JmpMsgs {
+			l = e.Size()
+			n += 1 + l + sovTrace(uint64(l))
+		}
+	}
+	if m.MsgJamMaxPair != nil {
+		l = m.MsgJamMaxPair.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.JmpMode != nil {
+		n += 1 + sovTrace(uint64(*m.JmpMode))
+	}
+	if m.Source != nil {
+		l = len(m.Source)
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.Fanout != nil {
+		n += 1 + sovTrace(uint64(*m.Fanout))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.MsgBuf != nil {
+		l = m.MsgBuf.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.MsgNumber != nil {
+		n += 1 + sovTrace(uint64(*m.MsgNumber))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Jam != nil {
+		n += 1 + sovTrace(uint64(*m.Jam))
+	}
+	if m.Max != nil {
+		n += 1 + sovTrace(uint64(*m.Max))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -3155,6 +3846,15 @@ func (m *TraceEvent_MessageMeta) Size() (n int) {
 	if m.Topic != nil {
 		l = len(*m.Topic)
 		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.Hop != nil {
+		n += 1 + sovTrace(uint64(*m.Hop))
+	}
+	if m.CreateTime != nil {
+		n += 1 + sovTrace(uint64(*m.CreateTime))
+	}
+	if m.Fanout != nil {
+		n += 1 + sovTrace(uint64(*m.Fanout))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -3887,6 +4587,42 @@ func (m *TraceEvent) Unmarshal(dAtA []byte) error {
 				m.Prune = &TraceEvent_Prune{}
 			}
 			if err := m.Prune.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 17:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HitMessage", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.HitMessage == nil {
+				m.HitMessage = &TraceEvent_HitMessage{}
+			}
+			if err := m.HitMessage.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -5489,6 +6225,198 @@ func (m *TraceEvent_Prune) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *TraceEvent_HitMessage) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HitMessage: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HitMessage: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReceivedFrom", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ReceivedFrom = append(m.ReceivedFrom[:0], dAtA[iNdEx:postIndex]...)
+			if m.ReceivedFrom == nil {
+				m.ReceivedFrom = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageID", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MessageID = append(m.MessageID[:0], dAtA[iNdEx:postIndex]...)
+			if m.MessageID == nil {
+				m.MessageID = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Topic", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			s := string(dAtA[iNdEx:postIndex])
+			m.Topic = &s
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hop", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Hop = &v
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CreateTime", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.CreateTime = &v
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *TraceEvent_RPCMeta) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -5622,6 +6550,433 @@ func (m *TraceEvent_RPCMeta) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Jmp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Jmp = append(m.Jmp, &TraceEvent_JmpMeta{})
+			if err := m.Jmp[len(m.Jmp)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TraceEvent_JmpMeta) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JmpMeta: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JmpMeta: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JmpMsgs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.JmpMsgs = append(m.JmpMsgs, &TraceEvent_JmpMeta_JmpMsgMeta{})
+			if err := m.JmpMsgs[len(m.JmpMsgs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgJamMaxPair", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.MsgJamMaxPair == nil {
+				m.MsgJamMaxPair = &TraceEvent_JmpMeta_JamMaxPairMeta{}
+			}
+			if err := m.MsgJamMaxPair.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JmpMode", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.JmpMode = &v
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Source = append(m.Source[:0], dAtA[iNdEx:postIndex]...)
+			if m.Source == nil {
+				m.Source = []byte{}
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fanout", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Fanout = &v
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TraceEvent_JmpMeta_JmpMsgMeta) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JmpMsgMeta: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JmpMsgMeta: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgBuf", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.MsgBuf == nil {
+				m.MsgBuf = &TraceEvent_MessageMeta{}
+			}
+			if err := m.MsgBuf.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgNumber", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.MsgNumber = &v
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TraceEvent_JmpMeta_JamMaxPairMeta) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JamMaxPairMeta: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JamMaxPairMeta: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Jam", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Jam = &v
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Max", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Max = &v
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTrace(dAtA[iNdEx:])
@@ -5740,6 +7095,66 @@ func (m *TraceEvent_MessageMeta) Unmarshal(dAtA []byte) error {
 			s := string(dAtA[iNdEx:postIndex])
 			m.Topic = &s
 			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hop", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Hop = &v
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CreateTime", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.CreateTime = &v
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fanout", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Fanout = &v
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTrace(dAtA[iNdEx:])

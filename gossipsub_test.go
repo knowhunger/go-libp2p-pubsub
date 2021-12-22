@@ -34,8 +34,15 @@ func getGossipsub(ctx context.Context, h host.Host, opts ...Option) *PubSub {
 
 func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSub {
 	var psubs []*PubSub
-	for _, h := range hs {
+	originOpts := opts
+	for i, h := range hs {
+		tracer, err := NewJSONTracer(fmt.Sprintf("./trace_out_gossip/tracer_%d.json", i))
+		if err != nil {
+			panic(err)
+		}
+		opts = append(opts, WithEventTracer(tracer))
 		psubs = append(psubs, getGossipsub(ctx, h, opts...))
+		opts = originOpts
 	}
 	return psubs
 }
@@ -43,13 +50,22 @@ func getGossipsubs(ctx context.Context, hs []host.Host, opts ...Option) []*PubSu
 func TestSparseGossipsub(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 20)
 
+	//ops := readOps(targetDir)
+
+	//playback := 0.01
+	var baseTime int64
+	numHosts := 50 // 256 개 포트 정도는 되는지
+	numMsgs := 100
+	baseTime = time.Now().UnixNano()
+
+	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tp := range topics {
+		subch, err := tp.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,17 +73,36 @@ func TestSparseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	sparseConnect(t, hosts)
+	// build random connect
+	sparseConnect(t, hosts) // connect to 3 random peers
+	//denseConnect(t, hosts) // connect to 10 random peers
+	//fullConnect(t, hosts)
+
+	// build centralized connect (like star shape)
+	//for i := 1; i < numHosts; i++ {
+	//	connect(t, hosts[0], hosts[i])
+	//}
+
+	fmt.Println(len(topics))
+	for i, ps := range psubs {
+		fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+	}
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
-	for i := 0; i < 100; i++ {
+	//publish based random owner
+	for i := 0; i < numMsgs; i++ {
+		fmt.Println("msg publish")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := rand.Intn(len(psubs))
+		//owner := 0
 
-		psubs[owner].Publish("foobar", msg)
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		for _, sub := range msgs {
 			got, err := sub.Next(ctx)
@@ -78,19 +113,60 @@ func TestSparseGossipsub(t *testing.T) {
 				t.Fatal("got wrong message!")
 			}
 		}
+
+		if i%10 == 0 {
+			for i, ps := range psubs {
+				fmt.Println(i, "'s peer", len(ps.topics["foobar"]))
+			}
+		}
 	}
+
+	// publish based rgaops
+	//targetDir := "./rgaops"
+	//var wg sync.WaitGroup
+	//files, err := ioutil.ReadDir(targetDir)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//for _, info := range files {
+	//	wg.Add(1)
+	//	peerStr := strings.Split(info.Name(), ".")[0]
+	//	peerInt, _ := strconv.Atoi(peerStr)
+	//
+	//	go func(ctx context.Context, tp *Topic, msgs []*Subscription, info fs.FileInfo) {
+	//		defer wg.Done()
+	//		opsPublish(ctx, tp, msgs, info)
+	//	}(ctx, topics[peerInt], msgs, info)
+	//}
+	//
+	//wg.Wait()
+
+	endTime := (time.Now().UnixNano() - baseTime) / 1000000
+	fmt.Println(endTime)
+
+	// print some statistics
+	printStat(psubs, "gossip")
 }
 
 func TestDenseGossipsub(t *testing.T) {
+	//GossipSubFanoutTTL = 1 * time.Second
+	//defer func() {
+	//	GossipSubFanoutTTL = 60 * time.Second
+	//}()
+
+	numHosts := 50
+	numMsgs := 100
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hosts := getNetHosts(t, ctx, 20)
-
+	hosts := getNetHosts(t, ctx, numHosts)
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tps := range topics {
+		subch, err := tps.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,17 +174,33 @@ func TestDenseGossipsub(t *testing.T) {
 		msgs = append(msgs, subch)
 	}
 
-	denseConnect(t, hosts)
+	//connectAll(t, hosts)
+	connectSome(t, hosts, 20)
+	//denseConnect(t, hosts)
+	//sparseConnect(t, hosts)
+	//connect(t, hosts[0], hosts[1])
+	//connect(t, hosts[1], hosts[2])
+	////connect(t, hosts[2], hosts[3])
+	//connect(t, hosts[3], hosts[4])
 
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < numMsgs; i++ {
+		if i%10 == 0 {
+			fmt.Println(i, "'s msg publish")
+		}
+		time.Sleep(time.Millisecond * 100)
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
+		//owner := rand.Intn(5)
 		owner := rand.Intn(len(psubs))
+		//owner = 0
 
-		psubs[owner].Publish("foobar", msg)
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			return
+		}
 
 		for _, sub := range msgs {
 			got, err := sub.Next(ctx)
@@ -120,6 +212,8 @@ func TestDenseGossipsub(t *testing.T) {
 			}
 		}
 	}
+
+	printStat(psubs, "gossip")
 }
 
 func TestGossipsubFanout(t *testing.T) {
@@ -341,10 +435,11 @@ func TestGossipsubGossip(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 20)
 
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tp := range topics {
+		subch, err := tp.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -362,7 +457,7 @@ func TestGossipsubGossip(t *testing.T) {
 
 		owner := rand.Intn(len(psubs))
 
-		psubs[owner].Publish("foobar", msg)
+		topics[owner].Publish(ctx, msg)
 
 		for _, sub := range msgs {
 			got, err := sub.Next(ctx)
@@ -374,16 +469,18 @@ func TestGossipsubGossip(t *testing.T) {
 			}
 		}
 
-		// wait a bit to have some gossip interleaved
+		// wait a bit to have some sendRPC interleaved
 		time.Sleep(time.Millisecond * 100)
 	}
 
-	// and wait for some gossip flushing
+	// and wait for some sendRPC flushing
 	time.Sleep(time.Second * 2)
+
+	printStat(psubs, "gossip")
 }
 
 func TestGossipsubGossipPiggyback(t *testing.T) {
-	t.Skip("test no longer relevant; gossip propagation has become eager")
+	t.Skip("test no longer relevant; sendRPC propagation has become eager")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	hosts := getNetHosts(t, ctx, 20)
@@ -443,11 +540,11 @@ func TestGossipsubGossipPiggyback(t *testing.T) {
 			}
 		}
 
-		// wait a bit to have some gossip interleaved
+		// wait a bit to have some sendRPC interleaved
 		time.Sleep(time.Millisecond * 100)
 	}
 
-	// and wait for some gossip flushing
+	// and wait for some sendRPC flushing
 	time.Sleep(time.Second * 2)
 }
 
@@ -632,10 +729,11 @@ func TestGossipsubRemovePeer(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 20)
 
 	psubs := getGossipsubs(ctx, hosts)
+	topics := getTopics(psubs, "foobar")
 
 	var msgs []*Subscription
-	for _, ps := range psubs {
-		subch, err := ps.Subscribe("foobar")
+	for _, tps := range topics {
+		subch, err := tps.Subscribe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -645,23 +743,32 @@ func TestGossipsubRemovePeer(t *testing.T) {
 
 	denseConnect(t, hosts)
 
+	for i, ps := range psubs {
+		fmt.Println(i, "'s peer", "len topics:", len(ps.topics["foobar"]),
+			"len peers:", len(ps.rt.(*GossipSubRouter).mesh["foobar"]))
+	}
+
 	// wait for heartbeats to build mesh
 	time.Sleep(time.Second * 2)
 
 	// disconnect some peers to exercise RemovePeer paths
-	for _, host := range hosts[:5] {
+	for _, host := range hosts[:15] {
 		host.Close()
 	}
 
 	// wait a heartbeat
 	time.Sleep(time.Second * 1)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
+		fmt.Println("publish msg")
 		msg := []byte(fmt.Sprintf("%d it's not a floooooood %d", i, i))
 
 		owner := 5 + rand.Intn(len(psubs)-5)
 
-		psubs[owner].Publish("foobar", msg)
+		err := topics[owner].Publish(ctx, msg)
+		if err != nil {
+			return
+		}
 
 		for _, sub := range msgs[5:] {
 			got, err := sub.Next(ctx)
@@ -670,6 +777,13 @@ func TestGossipsubRemovePeer(t *testing.T) {
 			}
 			if !bytes.Equal(msg, got.Data) {
 				t.Fatal("got wrong message!")
+			}
+		}
+
+		if i%10 == 0 {
+			for i, ps := range psubs {
+				fmt.Println(i, "'s peer", "len topics:", len(ps.topics["foobar"]),
+					"len peers:", len(ps.rt.(*GossipSubRouter).mesh["foobar"]))
 			}
 		}
 	}
@@ -1183,6 +1297,47 @@ func TestGossipsubDirectPeers(t *testing.T) {
 	}
 }
 
+func TestGossipSubPeerFilter(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := getNetHosts(t, ctx, 3)
+	psubs := []*PubSub{
+		getGossipsub(ctx, h[0], WithPeerFilter(func(pid peer.ID, topic string) bool {
+			return pid == h[1].ID()
+		})),
+		getGossipsub(ctx, h[1], WithPeerFilter(func(pid peer.ID, topic string) bool {
+			return pid == h[0].ID()
+		})),
+		getGossipsub(ctx, h[2]),
+	}
+
+	connect(t, h[0], h[1])
+	connect(t, h[0], h[2])
+
+	// Join all peers
+	var subs []*Subscription
+	for _, ps := range psubs {
+		sub, err := ps.Subscribe("test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		subs = append(subs, sub)
+	}
+
+	time.Sleep(time.Second)
+
+	msg := []byte("message")
+
+	psubs[0].Publish("test", msg)
+	assertReceive(t, subs[1], msg)
+	assertNeverReceives(t, subs[2], time.Second)
+
+	psubs[1].Publish("test", msg)
+	assertReceive(t, subs[0], msg)
+	assertNeverReceives(t, subs[2], time.Second)
+}
+
 func TestGossipsubDirectPeersFanout(t *testing.T) {
 	// regression test for #371
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1369,7 +1524,7 @@ func TestGossipsubCustomParams(t *testing.T) {
 
 	rt, ok := psubs[0].rt.(*GossipSubRouter)
 	if !ok {
-		t.Fatal("Did not get gossip sub router from pub sub object")
+		t.Fatal("Did not get sendRPC sub router from pub sub object")
 	}
 
 	if rt.params.IWantFollowupTime != wantedFollowTime {
@@ -1428,13 +1583,13 @@ func TestGossipsubNegativeScore(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	// let the sinkholed peer try to emit gossip as well
+	// let the sinkholed peer try to emit sendRPC as well
 	time.Sleep(2 * time.Second)
 
 	// checks:
 	// 1. peer 0 should only receive its own message
 	// 2. peers 1-20 should not receive a message from peer 0, because it's not part of the mesh
-	//    and its gossip is rejected
+	//    and its sendRPC is rejected
 	collectAll := func(sub *Subscription) []*Message {
 		var res []*Message
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -1560,7 +1715,8 @@ func TestGossipsubPiggybackControl(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := bhost.NewBlankHost(swarmt.GenSwarm(t, ctx))
+	h := bhost.NewBlankHost(swarmt.GenSwarm(t))
+	defer h.Close()
 	ps := getGossipsub(ctx, h)
 
 	blah := peer.ID("bogotr0n")
@@ -1945,7 +2101,7 @@ func TestGossipsubRPCFragmentation(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 2)
 	ps := getGossipsub(ctx, hosts[0])
 
-	// make a fake peer that requests everything through IWANT gossip
+	// make a fake peer that requests everything through IWANT sendRPC
 	iwe := iwantEverything{h: hosts[1]}
 	iwe.h.SetStreamHandler(GossipSubID_v10, iwe.handleStream)
 
@@ -1970,7 +2126,7 @@ func TestGossipsubRPCFragmentation(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	// wait a bit for them to be received via gossip by the fake peer
+	// wait a bit for them to be received via sendRPC by the fake peer
 	time.Sleep(5 * time.Second)
 	iwe.lk.Lock()
 	defer iwe.lk.Unlock()
@@ -1996,7 +2152,7 @@ func TestGossipsubRPCFragmentation(t *testing.T) {
 }
 
 // iwantEverything is a simple gossipsub client that never grafts onto a mesh,
-// instead requesting everything through IWANT gossip messages. It is used to
+// instead requesting everything through IWANT sendRPC messages. It is used to
 // test that large responses to IWANT requests are fragmented into multiple RPCs.
 type iwantEverything struct {
 	h                host.Host
@@ -2017,7 +2173,7 @@ func (iwe *iwantEverything) handleStream(s network.Stream) {
 	msgIdsReceived := make(map[string]struct{})
 	gossipMsgIdsReceived := make(map[string]struct{})
 
-	// send a subscription for test in the output stream to become candidate for gossip
+	// send a subscription for test in the output stream to become candidate for sendRPC
 	r := protoio.NewDelimitedReader(s, 1<<20)
 	w := protoio.NewDelimitedWriter(os)
 	truth := true
@@ -2219,7 +2375,7 @@ func TestFragmentRPCFunction(t *testing.T) {
 		t.Fatalf("expected at least %d total RPCs (at least %d with control messages), got %d total", expectedRPCs, expectedCtrl, len(results))
 	}
 
-	// Test the pathological case where a single gossip message ID exceeds the limit.
+	// Test the pathological case where a single sendRPC message ID exceeds the limit.
 	// It should not be present in the fragmented messages, but smaller IDs should be
 	rpc.Reset()
 	giantIdBytes := make([]byte, limit*2)
